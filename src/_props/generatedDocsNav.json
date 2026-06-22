@@ -1,0 +1,486 @@
+{
+  "tabs": [
+    {
+      "tab": "Guides",
+      "groups": [
+        {
+          "group": "Getting started",
+          "pages": [
+            {
+              "title": "Welcome to VectorPeak",
+              "description": "整理 Agent、RAG、工程实践和个人反思的知识站点",
+              "icon": "house",
+              "href": "/Guides/index"
+            }
+          ]
+        },
+        {
+          "group": "Reflections",
+          "pages": [
+            {
+              "title": "Thoughts",
+              "description": "关于职业选择、能力结构、成长路径与长期定位的阶段性思考",
+              "icon": "brain",
+              "href": "/Guides/reflections/thoughts"
+            },
+            {
+              "title": "Actions",
+              "description": "从投递、面试到复盘，整理能真正推进结果的行动方法",
+              "icon": "list-check",
+              "href": "/Guides/reflections/actions"
+            },
+            {
+              "title": "Observations",
+              "description": "观察大模型岗位链路、机会密度和不同方向的选择风险",
+              "icon": "eye",
+              "href": "/Guides/reflections/observations"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tab": "Agent",
+      "groups": [
+        {
+          "group": "Agent Theory",
+          "pages": [
+            {
+              "title": "Evaluation",
+              "description": "介绍 Agent 性能评估的指标体系、评测方法与工程落地关注点",
+              "icon": "chart-simple",
+              "href": "/Agent/Agent_Theory/Evaluation"
+            },
+            {
+              "title": "Memory",
+              "description": "介绍 Agentic Memory Systems 的记忆层次、检索机制、写入策略与压缩设计",
+              "icon": "database",
+              "href": "/Agent/Agent_Theory/memory"
+            },
+            {
+              "title": "Multi-agent",
+              "description": "介绍多 Agent 架构的协作模式、通信机制、任务分解与工程权衡",
+              "icon": "users",
+              "href": "/Agent/Agent_Theory/multi-agent"
+            }
+          ]
+        },
+        {
+          "group": "Agent Framework",
+          "pages": [
+            {
+              "title": "Framework",
+              "description": "介绍 Agent Framework 的核心概念、工程边界与常见实现形态",
+              "icon": "cubes",
+              "href": "/Agent/Agent_Framework/Framework"
+            },
+            {
+              "title": "Harness",
+              "description": "介绍 Harness 在 Agent 工程中的定位、执行环境、工具编排与安全控制",
+              "icon": "screwdriver",
+              "href": "/Agent/Agent_Framework/Harness"
+            },
+            {
+              "group": "LangChain",
+              "icon": "link",
+              "expanded": false,
+              "pages": [
+                {
+                  "title": "LangChain",
+                  "description": "从版本演进、核心思想和工程边界理解 LangChain 在大模型应用开发中的定位",
+                  "icon": "link",
+                  "href": "/Agent/Agent_Framework/LangChain/LangChain"
+                },
+                {
+                  "title": "Model Provider",
+                  "description": "介绍 LangChain 中模型供应商接入层的作用、配置方式与版本兼容注意点",
+                  "icon": "brain",
+                  "href": "/Agent/Agent_Framework/LangChain/Model Provider"
+                },
+                {
+                  "title": "Prompt Template",
+                  "description": "介绍 LangChain Prompt Template 的作用、使用场景和工程设计要点",
+                  "icon": "message",
+                  "href": "/Agent/Agent_Framework/LangChain/Prompt Template"
+                },
+                {
+                  "title": "Parser",
+                  "description": "介绍 LangChain 输出解析器的作用、结构化输出关系和常见工程风险",
+                  "icon": "filter",
+                  "href": "/Agent/Agent_Framework/LangChain/Parser"
+                },
+                {
+                  "title": "LCEL",
+                  "description": "介绍 LCEL 链式调用的核心思想、Runnable 组合方式和适用边界",
+                  "icon": "route",
+                  "href": "/Agent/Agent_Framework/LangChain/LCEL"
+                },
+                {
+                  "title": "Memory",
+                  "description": "介绍 LangChain 记忆机制的短期记忆、长期记忆、上下文管理和工程落地方式",
+                  "icon": "database",
+                  "href": "/Agent/Agent_Framework/LangChain/Memory"
+                },
+                {
+                  "title": "Tool",
+                  "description": "介绍 LangChain 工具调用的本质、定义方式、执行边界和安全控制",
+                  "icon": "wrench",
+                  "href": "/Agent/Agent_Framework/LangChain/Tool"
+                },
+                {
+                  "title": "Agent",
+                  "description": "介绍 LangChain Agent 的决策循环、create_agent、工具调用和生产落地边界",
+                  "icon": "robot",
+                  "href": "/Agent/Agent_Framework/LangChain/Agent"
+                },
+                {
+                  "title": "MCP",
+                  "description": "介绍 MCP 在 LangChain 项目中的作用、工具接入方式和项目实践注意点",
+                  "icon": "plug",
+                  "href": "/Agent/Agent_Framework/LangChain/MCP"
+                },
+                {
+                  "title": "RAG",
+                  "description": "合并介绍 RAG 文本处理、向量数据库和项目实践中的完整工程链路",
+                  "icon": "magnifying-glass",
+                  "href": "/Agent/Agent_Framework/LangChain/RAG"
+                },
+                {
+                  "title": "LangSmith",
+                  "description": "介绍 LangSmith 在 LangChain 应用中的调试、监控、评测和 Prompt 管理价值",
+                  "icon": "chart-line",
+                  "href": "/Agent/Agent_Framework/LangChain/LangSmith"
+                },
+                {
+                  "title": "LangServe",
+                  "description": "介绍 LangServe 的服务化定位、FastAPI 集成方式和与 LangGraph Platform 的区别",
+                  "icon": "server",
+                  "href": "/Agent/Agent_Framework/LangChain/LangServe"
+                }
+              ]
+            },
+            {
+              "group": "LangGraph",
+              "icon": "diagram-project",
+              "expanded": false,
+              "pages": [
+                {
+                  "title": "LangGraph",
+                  "description": "介绍 LangGraph 的定位、核心抽象、技术架构和适用边界",
+                  "icon": "diagram-project",
+                  "href": "/Agent/Agent_Framework/LangGraph/LangGraph"
+                },
+                {
+                  "title": "Agent & Tool",
+                  "description": "介绍 LangGraph 中预构建 ReAct Agent、工具绑定、流式输出和工具调用模式",
+                  "icon": "robot",
+                  "href": "/Agent/Agent_Framework/LangGraph/Agent & Tool"
+                },
+                {
+                  "title": "LangGraph Ecosystem",
+                  "description": "介绍 LangGraph 生态工具的协作方式",
+                  "icon": "network-wired",
+                  "href": "/Agent/Agent_Framework/LangGraph/LangGraph Ecosystem"
+                },
+                {
+                  "title": "Low-Level API",
+                  "description": "使用 LangGraph 底层 API 构建图，并进一步实现 ReAct 智能体",
+                  "icon": "code",
+                  "href": "/Agent/Agent_Framework/LangGraph/Low-Level API"
+                },
+                {
+                  "title": "Memory Management",
+                  "description": "介绍 LangGraph 中短期记忆、长期记忆、消息裁剪、总结和跨线程召回",
+                  "icon": "database",
+                  "href": "/Agent/Agent_Framework/LangGraph/Memory Management"
+                },
+                {
+                  "title": "LangGraph with MCP",
+                  "description": "介绍如何在 LangGraph 中接入 MCP 工具，以及如何把 LangGraph 封装为 MCP 服务",
+                  "icon": "plug",
+                  "href": "/Agent/Agent_Framework/LangGraph/LangGraph with MCP"
+                },
+                {
+                  "title": "Multi-Agent Architectures",
+                  "description": "介绍 LangGraph 中多智能体架构的常见模式、适用场景和项目实践拆分方式",
+                  "icon": "users",
+                  "href": "/Agent/Agent_Framework/LangGraph/Multi-Agent Architectures"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "group": "Modern Agent",
+          "pages": [
+            {
+              "title": "OpenClaw",
+              "description": "介绍 OpenClaw Agent 的总体架构、记忆系统、多智能体通信机制与高频面试问题",
+              "icon": "lobster",
+              "iconType": "solid",
+              "href": "/Agent/Modern_Agent/openclaw"
+            },
+            {
+              "title": "Hermes",
+              "description": "解析 Hermes Agent 的架构、记忆系统、自进化闭环、Skill 沉淀机制，以及它与 OpenClaw 的核心差异",
+              "icon": "horse-head",
+              "iconType": "solid",
+              "href": "/Agent/Modern_Agent/hermes"
+            },
+            {
+              "title": "Claude Code",
+              "description": "介绍 Claude Code 的核心功能、工作流、记忆机制、权限安全与面试高频问题",
+              "icon": "claude",
+              "iconType": "brands",
+              "href": "/Agent/Modern_Agent/claude-code"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tab": "RAG",
+      "groups": [
+        {
+          "group": "Overview",
+          "pages": [
+            {
+              "title": "RAG",
+              "description": "整理 RAG 技术体系、工程实践和课程讲义内容",
+              "icon": "magnifying-glass",
+              "href": "/RAG/index"
+            }
+          ]
+        },
+        {
+          "group": "Foundations",
+          "pages": [
+            {
+              "title": "项目概述与环境搭建",
+              "description": "介绍 KnowForge RAG 项目的整体架构、环境搭建和模块职责",
+              "icon": "rocket",
+              "href": "/RAG/foundations/project-overview"
+            },
+            {
+              "title": "RAG 基础",
+              "description": "系统梳理 RAG 的核心概念、流程、价值和边界",
+              "icon": "book-open",
+              "href": "/RAG/foundations/rag-fundamentals"
+            },
+            {
+              "title": "LangChain 生态",
+              "description": "整理 LangChain 在 RAG 工程中的组件体系和生态位置",
+              "icon": "link",
+              "href": "/RAG/foundations/langchain-ecosystem"
+            }
+          ]
+        },
+        {
+          "group": "Retrieval Engineering",
+          "pages": [
+            {
+              "title": "文档切分策略",
+              "description": "整理父子块切分、递归切分和 RAG 文档分块设计",
+              "icon": "scissors",
+              "href": "/RAG/retrieval/chunking-strategy"
+            },
+            {
+              "title": "Embedding 与 BGE-M3",
+              "description": "整理 Embedding 模型选型、BGE-M3 特性和向量化实践",
+              "icon": "binary",
+              "href": "/RAG/retrieval/embedding-and-bge-m3"
+            },
+            {
+              "title": "Milvus 索引与运维",
+              "description": "介绍 Milvus 索引机制、集合操作和向量数据库运维要点",
+              "icon": "database",
+              "href": "/RAG/retrieval/milvus-index-and-operations"
+            },
+            {
+              "title": "检索策略",
+              "description": "整理 RAG 检索计划、召回策略和动态检索链路",
+              "icon": "search",
+              "href": "/RAG/retrieval/retrieval-strategy"
+            },
+            {
+              "title": "查询改写与多路变体",
+              "description": "整理查询改写、多查询变体和检索召回增强方法",
+              "icon": "route",
+              "href": "/RAG/retrieval/query-rewrite-variants"
+            },
+            {
+              "title": "Milvus 混合检索",
+              "description": "整理 Milvus Hybrid Search、稠密稀疏召回和分数融合",
+              "icon": "database",
+              "href": "/RAG/retrieval/milvus-hybrid-search"
+            },
+            {
+              "title": "Cross-Encoder 重排序",
+              "description": "整理 Cross-Encoder Reranker 的原理、使用方式和工程边界",
+              "icon": "list-check",
+              "href": "/RAG/retrieval/cross-encoder-reranker"
+            }
+          ]
+        },
+        {
+          "group": "Pipeline & Orchestration",
+          "pages": [
+            {
+              "title": "意图识别",
+              "description": "整理 RAG 问答链路中的意图分类、路由和边界判断",
+              "icon": "split",
+              "href": "/RAG/pipeline/intent-classification"
+            },
+            {
+              "title": "QAService 编排",
+              "description": "介绍 QAService 如何统一编排意图、检索、上下文和生成",
+              "icon": "cubes",
+              "href": "/RAG/pipeline/qaservice-orchestration"
+            },
+            {
+              "title": "RAG Pipeline 主链路",
+              "description": "完整梳理 RAG Pipeline 从提问到生成的核心执行流程",
+              "icon": "route",
+              "href": "/RAG/pipeline/rag-pipeline"
+            },
+            {
+              "title": "Prompt 工程",
+              "description": "整理 RAG Prompt Profile、模板选择和答案生成约束",
+              "icon": "brain",
+              "href": "/RAG/pipeline/prompt-engineering"
+            },
+            {
+              "title": "FastAPI 异步服务",
+              "description": "整理 FastAPI、WebSocket 和异步服务在 RAG 系统中的使用",
+              "icon": "server",
+              "href": "/RAG/pipeline/fastapi-asynchronous-service"
+            },
+            {
+              "title": "应用入口与启动校验",
+              "description": "介绍应用入口、环境前置校验和服务启动流程",
+              "icon": "shield-check",
+              "href": "/RAG/pipeline/app-entry-preflight"
+            }
+          ]
+        },
+        {
+          "group": "Production RAG",
+          "pages": [
+            {
+              "title": "知识库版本管理",
+              "description": "整理知识库多版本管理、灰度切换和版本隔离策略",
+              "icon": "database",
+              "href": "/RAG/production/kb-versioning"
+            },
+            {
+              "title": "数据隔离",
+              "description": "介绍多租户、数据范围和权限隔离在 RAG 系统中的设计",
+              "icon": "lock-keyhole",
+              "href": "/RAG/production/data-isolation"
+            },
+            {
+              "title": "入库流水线",
+              "description": "整理文档加载、切分、向量化、索引和入库处理链路",
+              "icon": "upload",
+              "href": "/RAG/production/ingestion-pipeline"
+            },
+            {
+              "title": "质量评估",
+              "description": "整理 RAG 回归验收、入库质量和效果评估方法",
+              "icon": "chart-simple",
+              "href": "/RAG/production/quality-evaluation"
+            },
+            {
+              "title": "测试体系",
+              "description": "介绍接口验收、回归测试和 RAG 系统测试设计",
+              "icon": "list-check",
+              "href": "/RAG/production/testing-system"
+            },
+            {
+              "title": "可观测性与链路追踪",
+              "description": "整理 LangSmith Trace、日志和 RAG 链路观测方法",
+              "icon": "chart-line",
+              "href": "/RAG/production/observability-tracing"
+            }
+          ]
+        },
+        {
+          "group": "Advanced Topics",
+          "pages": [
+            {
+              "title": "RAG 优化",
+              "description": "从课程大纲视角整理 RAG 系统优化方向和学习路径",
+              "icon": "sliders",
+              "href": "/RAG/advanced/rag-optimization"
+            },
+            {
+              "title": "RAG 评估",
+              "description": "整理 RAG 评估指标、评测方法和质量诊断思路",
+              "icon": "chart-simple",
+              "href": "/RAG/advanced/rag-evaluation"
+            },
+            {
+              "title": "Graph RAG",
+              "description": "结合流程图整理 RAG 系统业务流、结构关系和图式表达",
+              "icon": "diagram-project",
+              "href": "/RAG/advanced/graph-rag"
+            },
+            {
+              "title": "Agentic RAG",
+              "description": "结合 Pipeline 演示整理多阶段 RAG 执行、路由和动态决策",
+              "icon": "robot",
+              "href": "/RAG/advanced/agentic-rag"
+            }
+          ]
+        },
+        {
+          "group": "Technical Appendix",
+          "pages": [
+            {
+              "title": "Pydantic 数据校验",
+              "description": "整理 Pydantic 数据校验与 Settings 管理基础",
+              "icon": "badge-check",
+              "href": "/RAG/appendix/pydantic"
+            },
+            {
+              "title": "SHA256 指纹",
+              "description": "整理文件指纹、去重和版本识别中的 SHA256 使用方式",
+              "icon": "fingerprint",
+              "href": "/RAG/appendix/sha256-fingerprint"
+            },
+            {
+              "title": "HNSW 索引",
+              "description": "整理 HNSW 索引原理、参数和向量检索调优要点",
+              "icon": "network-wired",
+              "href": "/RAG/appendix/hnsw-index"
+            },
+            {
+              "title": "Recursive Splitter",
+              "description": "整理 RecursiveCharacterTextSplitter 的机制和使用场景",
+              "icon": "code-branch",
+              "href": "/RAG/appendix/recursive-splitter"
+            },
+            {
+              "title": "Embedding 模型",
+              "description": "整理 RAG 中 Embedding 模型选择、部署和效果权衡",
+              "icon": "binary",
+              "href": "/RAG/appendix/embedding-models"
+            },
+            {
+              "title": "切分策略附录",
+              "description": "补充整理文档切分、父子块和 chunk 设计细节",
+              "icon": "scissors",
+              "href": "/RAG/appendix/chunking-strategy-appendix"
+            },
+            {
+              "title": "工具基础",
+              "description": "整理项目工具类、辅助函数和工程基础能力",
+              "icon": "wrench",
+              "href": "/RAG/appendix/tool-foundations"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,933 @@
+---
+title: "Prompt Template"
+icon: "message"
+description: "介绍 LangChain Prompt Template 的作用、使用场景和工程设计要点"
+---
+
+## 1. Prompt Template
+
+<Badge icon="clock" color="green">Written: 2026.06</Badge>
+在与大语言模型交互时，通常不会直接将用户的原始输入直接传递给大模型，而是会先进行一系列包装、组织和格式化操作。这样做的目的是：更清晰地表达用户意图，更好地利用模型能力
+
+### 1.1 提示词模板介绍
+
+#### 1.1.1 为什么需要提示词模板
+
+这套结构化的提示词构建方式，就是 LangChain 中的 提示词模板(PromptTemplate)，对于 LLM 应用来说，好的提示词就是成功的一半。更多提示词技巧可参考文档：[https://www.cuiliangblog.cn/detail/section/228046450](https://www.cuiliangblog.cn/detail/section/228046450)
+
+LangChain 提示词官方文档参考：[https://reference.langchain.com/python/langchain\_core/prompts/](https://reference.langchain.com/python/langchain_core/prompts/)
+
+#### 1.1.2 提示词模板分类
+
+LangChain 提供了多种不同的提示词模板，下面介绍几种常用的提示词模板：
+
+* `PromptTemplate`：文本生成模型提示词模板，用字符串拼接变量生成提示词
+
+* `ChatPromptTemplate`：聊天模型提示词模板，适用于如 `gpt-3.5-turbo`、`gpt-4` 等聊天模型
+
+* `HumanMessagePromptTemplate`：人类消息提示词模板
+
+* `SystemMessagePromptTemplate`：系统消息提示词模板
+
+* `FewShotPromptTemplate`：少样本学习提示词模板， 构建一个 Prompt，其中包含多个 示例，可以 自动将这些示例格式化并插入到主 Prompt 中 。
+
+* `PipelinePrompt`：管道提示词模板，用于把几个提示词组合在一起使用。
+
+#### 1.1.3 提示词模板类继承关系
+
+分析LangChain源码可知，在LangChain的类结构中，顶层基类是 `BasePromptTemplate`，用于定义Prompt模板系统必须实现的核心方法，而`StringPromptTemplate` 和 `BaseChatPromptTemplate`两个子类分别继承该顶层基类
+
+<Frame caption="提示词模板类继承关系">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1761098265062-bb5a2452-9557-46fc-877c-eddef8b56880.png" alt="提示词模板类继承关系" />
+</Frame>
+
+接入聊天模型时需继承`BaseChatPromptTemplate`；而文本生成模型则继承`StringPromptTemplate`
+
+### 1.2 文本提示词模板
+
+`PromptTemplate` 针对文本生成模型的提示词模板，也是LangChain提供的最基础的模板，通过格式化字符串生成提示词，在执行`invoke`时将变量格式化到提示词模板中
+
+**主要参数：**
+
+`template`：定义提示词模板的字符串，其中包含文本和变量占位符(如\{name})
+
+`input_variables`： 列表，指定了模板中使用的变量名称，在调用模板时被替换
+
+`partial_variables`：字典，用于定义模板中一些固定的变量名。这些值不需要再每次调用时被替换
+
+**函数介绍：**
+
+`format()`：给`input_variables`变量赋值，并返回提示词。利用`format()` 进行格式化时就一定要赋值，否则会报错。当在template中未设置`input_variables`，则会自动忽略。
+
+### 1.3 创建文本提示词
+
+#### 1.3.1 使用构造方法
+
+```python title="使用构造方法" icon="python"
+from langchain_core.prompts import PromptTemplate
+
+# 创建一个PromptTemplate对象，用于生成格式化的提示词模板
+# 该模板包含两个变量：role(角色)和question(问题)
+template = PromptTemplate(template="你是一个专业的{role}工程师，请回答我的问题给出回答，我的问题是：{question}",
+                        input_variables=['role', 'question'])
+
+# 使用模板格式化具体的提示词内容
+# 将role替换为"python开发"，question替换为"冒泡排序怎么写？"
+prompt = template.format(role="python开发",question="冒泡排序怎么写？")
+
+# 输出格式化后的提示词内容
+print(prompt)
+```
+
+```console title="输出格式化后的提示词内容:" icon="terminal"
+你是一个专业的python开发工程师，请回答我的问题给出回答，我的问题是：冒泡排序怎么写？
+```
+
+#### 1.3.2 调用 from\_template(常用)
+
+```python title="调用from_template" icon="python"
+from langchain_core.prompts import PromptTemplate
+
+# 创建一个PromptTemplate对象，用于生成格式化的提示词模板
+# 模板包含两个占位符：{role}表示角色，{question}表示问题
+template = PromptTemplate.from_template("你是一个专业的{role}工程师，请回答我的问题给出回答，我的问题是：{question}")
+
+# 使用指定的角色和问题参数来格式化模板，生成最终的提示词字符串
+# role: 工程师角色描述
+# question: 具体的技术问题
+prompt = template.format(role="python开发",question="冒泡排序怎么写？")
+
+# 输出生成的提示词
+print(prompt)
+```
+
+```python title="输出生成的提示词" icon="python"
+你是一个专业的python开发工程师，请回答我的问题给出回答，我的问题是：冒泡排序怎么写？
+```
+
+#### 1.3.3 部分提示词模板
+
+部分提示词，顾名思义就是允许你预先固定部分变量，而保留其他变量在后续动态填充。例如：先预设系统参数，然后等用户输入后再补齐提示词模板。
+
+```python title="部分提示词" icon="python"
+from datetime import datetime
+from langchain_core.prompts import PromptTemplate
+
+# 创建一个包含时间变量的模板，时间变量使用partial_variables预设为当前时间
+# 然后格式化问题生成最终提示词
+template1 = PromptTemplate.from_template("现在时间是：{time},请对我的问题给出答案，我的问题是：{question}",
+                                         partial_variables={"time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+prompt1 = template1.format(question="今天是几号？")
+print(prompt1)
+
+# 创建一个包含时间变量的模板，通过partial方法预设时间变量为当前时间
+# 然后格式化问题生成最终提示词
+template2 = PromptTemplate.from_template("现在时间是：{time},请对我的问题给出答案，我的问题是：{question}")
+partial = template2.partial(time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+prompt2 = partial.format(question="今天是几号？")
+print(prompt2)
+
+```
+
+```console title="然后格式化问题生成最终提示词" icon="terminal"
+现在时间是：2025-10-22 10:51:26,请对我的问题给出答案，我的问题是：今天是几号？
+现在时间是：2025-10-22 10:51:26,请对我的问题给出答案，我的问题是：今天是几号？
+```
+
+#### 1.3.4 组合提示词模板
+
+通过将多个子提示(Prompt)按一定逻辑顺序或层级组合起来，形成一个复杂任务的整体 Prompt。例如实现多消息对话、多阶段任务、多输入源组合等场景。
+
+```python title="组合提示词模板" icon="python"
+from langchain_core.prompts import PromptTemplate
+
+# 创建一个PromptTemplate模板，用于生成介绍某个主题的提示词
+# 该模板包含两个占位符：topic(主题)和length(字数限制)
+template1 = PromptTemplate.from_template("请用一句话介绍{topic}，要求通俗易懂\n") + "内容不超过{length}个字"
+# 使用format方法填充模板中的占位符，生成具体的提示词
+prompt1 = template1.format(topic="LangChain", length=20)
+print(prompt1)
+
+# 分别创建两个独立的PromptTemplate模板
+prompt_a = PromptTemplate.from_template("请用一句话介绍{topic}，要求通俗易懂\n")
+prompt_b = PromptTemplate.from_template("内容不超过{length}个字")
+# 将两个模板进行拼接组合
+prompt_all = prompt_a + prompt_b
+# 填充组合后模板的占位符，生成最终的提示词
+prompt2 = prompt_all.format(topic="LangChain", length=20)
+print(prompt2)
+```
+
+```console title="填充组合后模板的占位符，生成最终的提示词" icon="terminal"
+请用一句话介绍量子纠缠，要求通俗易懂
+内容不超过20个字
+请用一句话介绍量子纠缠，要求通俗易懂
+内容不超过20个字
+```
+
+### 1.4 文本提示词方法
+
+上述的代码示例中，我们使用了`format`方法，除了`format`方法能够格式化提示词模板，`invoke`()和`partial`()方法也可以做到，以下是它们的作用：
+
+`invoke`：格式化提示词模板为PromptValue
+
+`format`：格式化提示词模板为字符串
+
+`partial`：格式化提示词模板为一个新的提示词模板，可以继续进行格式化
+
+#### 1.4.1 format
+
+format() 方法用法如下，将 `question` 参数格式化到提示词模板中，返回一个字符串：
+
+```python title="format()方法" icon="python"
+from langchain_core.prompts import PromptTemplate
+
+# 创建一个PromptTemplate对象，用于生成格式化的提示词模板
+# 模板包含两个占位符：{role}表示角色，{question}表示问题
+template = PromptTemplate.from_template("你是一个专业的{role}工程师，请回答我的问题给出回答，我的问题是：{question}")
+
+# 使用指定的角色和问题参数来格式化模板，生成最终的提示词字符串
+# role: 工程师角色描述
+# question: 具体的技术问题
+prompt = template.format(role="python开发",question="冒泡排序怎么写？")
+
+# 输出生成的提示词
+print(prompt)
+print(type(prompt))
+```
+
+```console title="输出生成的提示词" icon="terminal"
+你是一个专业的python开发工程师，请回答我的问题给出回答，我的问题是：冒泡排序怎么写？
+<class 'str'>
+```
+
+#### 1.4.2 partial
+
+partial()方法用法如下，可以格式化部分变量，并且继续返回一个模板，通常在部分提示词模板场景下使用
+
+```python title="partial" icon="python"
+from langchain_core.prompts import PromptTemplate
+
+# 创建模板对象，定义提示词模板格式
+# 模板包含两个占位符：role(角色)和 question(问题)
+template = PromptTemplate.from_template("你是一个专业的{role}工程师，请回答我的问题给出回答，我的问题是：{question}")
+
+# 使用partial方法固定role参数为"python开发"
+# 返回一个新的模板对象，其中role参数已被绑定
+partial = template.partial(role="python开发")
+
+# 打印partial对象及其类型信息
+print(partial)
+print(type(partial))
+
+# 使用format方法填充question参数，生成最终的提示词字符串
+# 此时所有占位符都已填充完毕，返回完整的提示词文本
+prompt = partial.format(question="冒泡排序怎么写？")
+
+# 输出生成的提示词
+print(prompt)
+print(type(prompt))
+```
+
+```console title="输出生成的提示词" icon="terminal"
+input_variables=['question'] input_types={} partial_variables={'role': 'python开发'} template='你是一个专业的{role}工程师，请回答我的问题给出回答，我的问题是：{question}'
+<class 'langchain_core.prompts.prompt.PromptTemplate'>
+你是一个专业的python开发工程师，请回答我的问题给出回答，我的问题是：冒泡排序怎么写？
+<class 'str'>
+```
+
+#### 1.4.3 invoke
+
+`invoke()` 是 LangChain Expression Language(LCEL 的统一执行入口，用于执行任意可运行对象(Runnable )。返回的是一个 `PromptValue` 对象，可以用 `.to_string()` 或 `.to_messages()` 查看内容
+
+```python title="invoke()方法" icon="python"
+from langchain_core.prompts import PromptTemplate
+
+# 创建一个PromptTemplate对象，用于生成格式化的提示词模板
+# 模板中包含两个占位符：{role}表示角色，{question}表示问题
+template = PromptTemplate.from_template("你是一个专业的{role}工程师，请回答我的问题给出回答，我的问题是：{question}")
+
+# 使用invoke方法填充模板中的占位符，生成具体的提示词
+# 参数：字典类型，包含role和question两个键值对
+# 返回值：PromptValue对象，包含了格式化后的提示词
+prompt = template.invoke({"role": "python开发", "question": "冒泡排序怎么写？"})
+
+# 打印PromptValue对象及其类型
+print(prompt)
+print(type(prompt))
+
+# 将PromptValue对象转换为字符串并打印
+# to_string()方法将PromptValue转换为可读的字符串格式
+print(prompt.to_string())
+print(type(prompt.to_string()))
+
+```
+
+```console title="to_string()方法将PromptValue转换为可读的字符串格式" icon="terminal"
+text='你是一个专业的python开发工程师，请回答我的问题给出回答，我的问题是：冒泡排序怎么写？'
+<class 'langchain_core.prompt_values.StringPromptValue'>
+你是一个专业的python开发工程师，请回答我的问题给出回答，我的问题是：冒泡排序怎么写？
+<class 'str'>
+```
+
+### 1.5 对话提示词模板
+
+`ChatPromptTemplate` 是专为聊天模型(如 `gpt-3.5-turbo`、`gpt-4` 等)设计的提示词模板，它支持构造多轮对话的消息结构，每条消息可指定角色(如系统、用户、AI)。
+
+特点：
+
+* 支持 System / Human / AI 等不同角色的消息模板
+
+* 对话历史维护
+
+参数类型：列表参数格式是tuple类型( role :str content :str 组合最常用)
+
+元组的格式为：(role: str | type, content: str | list\[dict] | list\[object])
+
+其中 role 是：字符串(如 “system” 、“human” 、“ai” )
+
+### 1.6 创建对话提示词
+
+#### 1.6.1 使用构造方法
+
+```python title="创建提示词-构造方法" icon="python"
+from langchain_core.prompts import ChatPromptTemplate
+
+# 创建聊天提示模板，包含系统角色设定、用户询问和AI回答的对话历史
+# 以及用户当前输入的占位符
+prompt_template = ChatPromptTemplate([
+    ("system", "你是一个AI助手，你的名字是{name}"),
+    ("human", "你能做什么事"),
+    ("ai", "我可以陪你聊天，讲笑话，写代码"),
+    ("human", "{user_input}"),
+])
+
+# 使用指定的参数格式化提示模板，生成最终的提示字符串
+# name: AI助手的名称
+# user_input: 用户的当前输入
+prompt = prompt_template.format(name="小张", user_input="你可以做什么")
+print(prompt)
+```
+
+```console title="user_input: 用户的当前输入" icon="terminal"
+System: 你是一个AI助手，你的名字是小张
+Human: 你能做什么事
+AI: 我可以陪你聊天，讲笑话，写代码
+Human: 你可以做什么
+```
+
+#### 1.6.2 调用 from\_messages(常用)
+
+代码示例如下，提示词模板中包含两条消息，第一条是系统消息，无需做提示词渲染，第二条是人类消息，在执行invoke时，需要把变量question渲染进去。
+
+```python title="调用form_message" icon="python"
+from langchain_core.prompts import ChatPromptTemplate
+
+# 创建聊天提示模板，包含系统角色设定和用户问题格式
+# 系统消息定义了AI的角色，人类消息定义了问题的输入格式
+chat_prompt = ChatPromptTemplate.from_messages([
+    ("system", "你是一个{role}，请回答我提出的问题"),
+    ("human", "请回答:{question}")
+])
+
+# 使用指定的角色和问题参数填充模板，生成具体的提示内容
+# role: 指定AI扮演的角色
+# question: 用户提出的具体问题
+prompt_value = chat_prompt.invoke({"role": "python开发工程师", "question": "冒泡排序怎么写"})
+
+# 输出生成的提示内容
+print(prompt_value.to_string())
+```
+
+```console title="输出生成的提示内容" icon="terminal"
+System: 你是一个python开发工程师，请回答我提出的问题
+Human: 请回答:冒泡排序怎么写
+```
+
+### 1.7 对话提示词方法
+
+除了之前在 `PromptTemplate`介绍的 `format、partial、invoke`外，还有 `format_messages 和 format_prompt`方法。
+
+#### 1.7.1 format\_messages
+
+作用：将模板变量替换后，直接生成 消息列表(`List[BaseMessage]`)，一般包含：`SystemMessage``HumanMessage``AIMessage`
+
+常用场景：用于手动查看或调试 Prompt 的最终“消息结构”，或者自己拼接进 Chain。
+
+代码如下
+
+```python title="format_message" icon="python"
+from langchain_core.prompts import ChatPromptTemplate
+
+# 创建聊天提示模板，包含系统角色设定和用户问题格式
+# 系统消息定义了AI助手的角色，人类消息定义了用户问题的格式
+chat_prompt = ChatPromptTemplate.from_messages([
+    ("system", "你是一个{role}，请回答我提出的问题"),
+    ("human", "请回答:{question}")
+])
+
+# 格式化聊天提示模板，填充角色和问题参数
+# 参数role: 指定AI助手的角色身份
+# 参数question: 用户提出的具体问题
+# 返回值: 格式化后的消息列表
+prompt_value = chat_prompt.format_messages(role="python开发工程师", question="冒泡排序怎么写")
+
+# 打印格式化后的提示消息
+print(prompt_value)
+```
+
+```console title="打印格式化后的提示消息" icon="terminal"
+[SystemMessage(content='你是一个python开发工程师，请回答我提出的问题', additional_kwargs={}, response_metadata={}), HumanMessage(content='请回答:冒泡排序怎么写', additional_kwargs={}, response_metadata={})]
+```
+
+#### 1.7.2 format\_prompt
+
+作用：生成一个 `PromptValue` 对象，这是一种抽象层次更高的封装。
+
+* 对于 `PromptTemplate`(单纯文本)，返回 `StringPromptValue`
+
+* 对于 `ChatPromptTemplate`(对话模板)，返回 `ChatPromptValue`
+
+`PromptValue` 有两个常用方法：
+
+* `.to_string()` → 转成文本
+
+* `.to_messages()` → 转成消息列表(同上)
+
+返回值：`PromptValue` 对象
+
+代码如下
+
+```python title="format_prompt" icon="python"
+from langchain_core.prompts import ChatPromptTemplate
+
+# 创建聊天提示模板，包含系统角色设定和用户问题格式
+# 该模板定义了两个消息：系统消息用于设定AI助手的角色，人类消息用于接收用户的具体问题
+chat_prompt = ChatPromptTemplate.from_messages([
+    ("system", "你是一个{role}，请回答我提出的问题"),
+    ("human", "请回答:{question}")
+])
+
+# 使用指定的角色和问题参数格式化聊天提示模板
+# role: 指定AI助手的角色身份
+# question: 用户提出的具体问题
+# 返回格式化后的提示对象，可用于后续的模型调用
+prompt = chat_prompt.format_prompt(role="python开发工程师", question="冒泡排序怎么写")
+
+# 打印格式化后的提示内容
+print(prompt)
+
+# 将提示转换为消息列表并打印
+print(prompt.to_messages())
+```
+
+```console title="将提示转换为消息列表并打印" icon="terminal"
+messages=[SystemMessage(content='你是一个python开发工程师，请回答我提出的问题', additional_kwargs={}, response_metadata={}), HumanMessage(content='请回答:冒泡排序怎么写', additional_kwargs={}, response_metadata={})]
+[SystemMessage(content='你是一个python开发工程师，请回答我提出的问题', additional_kwargs={}, response_metadata={}), HumanMessage(content='请回答:冒泡排序怎么写', additional_kwargs={}, response_metadata={})]
+```
+
+### 1.8 对话提示词实例化参数类型
+
+前面讲了ChatPromptTemplate的两种创建方式。我们看到不管使用构造方法，参数类型都是列表类型。参数除了是列表类型，列表的元素可以是字符串、字典、字符串构成的元组、消息类型、提示词模板类型、消息提示词模板类型等
+
+#### 1.8.1 str 类型
+
+列表参数格式是str类型(不推荐)，因为默认都是HumanMessage。
+
+代码如下
+
+```python title="str 类型" icon="python"
+from langchain_core.prompts import ChatPromptTemplate
+
+# 创建聊天提示模板，用于构建AI助手的对话上下文
+# 该模板包含两个消息：AI助手的自我介绍和用户问题
+chat_prompt = ChatPromptTemplate.from_messages([
+    "你是AI助手，你的名字叫{name}。",
+    "请问：{question}"
+])
+
+# 格式化聊天提示模板，填充具体的助手名称和问题内容
+# 参数name: AI助手的名字
+# 参数question: 用户提出的问题
+# 返回值: 格式化后的消息列表
+message = chat_prompt.format_messages(name="亮仔", question="什么是LangChain")
+
+# 打印格式化后的消息内容
+print(message)
+```
+
+```console title="打印格式化后的消息内容" icon="terminal"
+[HumanMessage(content='你是AI助手，你的名字叫亮仔。', additional_kwargs={}, response_metadata={}), HumanMessage(content='请问：什么是LangChain', additional_kwargs={}, response_metadata={})]
+```
+
+#### 1.8.2 dict 类型
+
+列表参数格式是dict类型，代码如下:
+
+```python title="dict 类型" icon="python"
+from langchain_core.prompts import ChatPromptTemplate
+
+# 创建聊天提示模板，用于构建AI助手的对话上下文
+# 该模板包含两个消息：AI助手的自我介绍和用户问题
+chat_prompt = ChatPromptTemplate.from_messages([
+    {"role": "system", "content": "你是AI助手，你的名字叫{name}。"},
+    {"role": "user", "content": "请问：{question}"}
+
+])
+
+# 格式化聊天提示模板，填充具体的助手名称和问题内容
+# 参数name: AI助手的名字
+# 参数question: 用户提出的问题
+# 返回值: 格式化后的消息列表
+message = chat_prompt.format_messages(name="亮仔", question="什么是LangChain")
+
+# 打印格式化后的消息内容
+print(message)
+```
+
+```console title="打印格式化后的消息内容" icon="terminal"
+[SystemMessage(content='你是AI助手，你的名字叫亮仔。', additional_kwargs={}, response_metadata={}), HumanMessage(content='请问：什么是LangChain', additional_kwargs={}, response_metadata={})]
+```
+
+#### 1.8.3 message 类型
+
+`System/Human/AIMessage` 是 `langchain` 中用于构建不同角色的一个类。它通常用于创建聊天消息的一部分，特别是当你构建一个多轮对话的 prompt 模板时，区分系统、AI、和人类消息。
+
+代码如下
+
+```python title="message 类型" icon="python"
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
+
+# 创建聊天提示模板，用于构建AI助手的对话上下文
+# 该模板包含两个消息：AI助手的自我介绍和用户问题
+chat_prompt = ChatPromptTemplate.from_messages([
+    SystemMessage(content="你是AI助手，你的名字叫{name}。"),
+    HumanMessage(content="请问：{question}")
+])
+
+# 格式化聊天提示模板，填充具体的助手名称和问题内容
+# 参数name: AI助手的名字
+# 参数question: 用户提出的问题
+# 返回值: 格式化后的消息列表
+message = chat_prompt.format_messages(name="亮仔", question="什么是LangChain")
+
+# 打印格式化后的消息内容
+print(message)
+```
+
+```console title="打印格式化后的消息内容" icon="terminal"
+[SystemMessage(content='你是AI助手，你的名字叫{name}。', additional_kwargs={}, response_metadata={}), HumanMessage(content='请问：{question}', additional_kwargs={}, response_metadata={})]
+```
+
+#### 1.8.4 BaseChatPromptTemplate 类型
+
+使用 BaseChatPromptTemplate，可以理解为ChatPromptTemplate里嵌套了ChatPromptTemplate。
+
+```python title="BaseChatPromptTemplate 类型" icon="python"
+from langchain_core.prompts import ChatPromptTemplate
+
+# 创建系统消息模板，用于定义AI助手的身份信息
+prompt_template1 = ChatPromptTemplate.from_messages([("system", "你是AI助手，你的名字叫{name}。")])
+
+# 创建人类消息模板，用于定义用户提问的格式
+prompt_template2 = ChatPromptTemplate.from_messages([("human", "请问：{question}")])
+
+# 将系统消息模板和人类消息模板组合成完整的对话模板
+chat_prompt = ChatPromptTemplate.from_messages([
+    prompt_template1,
+    prompt_template2
+])
+
+# 使用指定的参数格式化消息模板，生成实际的消息内容
+message = chat_prompt.format_messages(name="亮仔", question="什么是LangChain")
+
+# 打印生成的消息内容
+print(message)
+```
+
+```console title="打印生成的消息内容" icon="terminal"
+[SystemMessage(content='你是AI助手，你的名字叫亮仔。', additional_kwargs={}, response_metadata={}), HumanMessage(content='请问：什么是LangChain', additional_kwargs={}, response_metadata={})]
+```
+
+#### 1.8.5 BaseMessagePromptTemplate 类型
+
+LangChain提供不同类型的MessagePromptTemplate。最常用的是SystemMessagePromptTemplate 、HumanMessagePromptTemplate 和AIMessagePromptTemplate ，分别创建系统消息、人工消息和AI消息，它们是ChatMessagePromptTemplate的特定角色子类。
+
+**基本概念：**
+
+HumanMessagePromptTemplate，专用于生成用户消息(HumanMessage) 的模板类，是ChatMessagePromptTemplate的特定角色子类。
+
+* 本质：预定义了 role=“human” 的 MessagePromptTemplate，且无需无需手动指定角色
+
+* 模板化：支持使用变量占位符，可以在运行时填充具体值
+
+* 格式化：能够将模板与输入变量结合生成最终的聊天消息
+
+* 输出类型：生成 HumanMessage 对象( content + role=“human” )
+
+* 设计目的 ：简化用户输入消息的模板化构造，避免重复定义角色
+
+SystemMessagePromptTemplate、AIMessagePromptTemplate：类似于上面，不再赘述
+
+ChatMessagePromptTemplate，用于构建聊天消息的模板。它允许你创建可重用的消息模板，这些模板可以动态地插入变量值来生成最终的聊天消息
+
+* 角色指定：可以为每条消息指定角色(如 “system”、“human”、“ai”) 等，角色灵活。
+
+* 模板化：支持使用变量占位符，可以在运行时填充具体值
+
+* 格式化：能够将模板与输入变量结合生成最终的聊天消息
+
+示例代码如下
+
+```python title="BaseMessagePromptTemplate 类型" icon="python"
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+
+# 创建系统消息模板，用于定义AI助手的身份信息
+system_prompt=SystemMessagePromptTemplate.from_template("你是AI助手，你的名字叫{name}。")
+
+# 创建人类消息模板，用于定义用户提问的格式
+human_prompt = HumanMessagePromptTemplate.from_template("请回答：{question}")
+
+# 创建具体的系统消息和人类消息实例
+system_msg = SystemMessage(content="你是AI工程师")
+human_msg = HumanMessage(content="你好")
+
+# 创建嵌套的消息模板，包含预定义的系统和人类消息
+nested_prompt = ChatPromptTemplate.from_messages([system_msg, human_msg])
+
+# 构建完整的聊天提示模板，组合了模板和具体消息
+chat_prompt = ChatPromptTemplate.from_messages([
+    system_prompt,
+    human_prompt,
+    system_msg,
+    human_msg,
+    nested_prompt
+])
+
+# 格式化消息并打印结果
+message = chat_prompt.format_messages(name="亮仔", question="什么是LangChain")
+print(message)
+
+```
+
+```console title="格式化消息并打印结果" icon="terminal"
+[SystemMessage(content='你是AI助手，你的名字叫亮仔。', additional_kwargs={}, response_metadata={}), HumanMessage(content='请回答：什么是LangChain', additional_kwargs={}, response_metadata={}), SystemMessage(content='你是AI工程师', additional_kwargs={}, response_metadata={}), HumanMessage(content='你好', additional_kwargs={}, response_metadata={}), SystemMessage(content='你是AI工程师', additional_kwargs={}, response_metadata={}), HumanMessage(content='你好', additional_kwargs={}, response_metadata={})]
+```
+
+### 1.9 少量样本提示词模板
+
+#### 1.9.1 FewShotPromptTemplate
+
+`FewShotPromptTemplate` 用于：
+
+* 构建一个 Prompt，其中包含多个 示例(examples)；
+
+* 自动将这些示例格式化并插入到主 Prompt 中；
+
+* 实现 Few-Shot Prompting 方式，以增强大模型在特定任务(如分类、问答、翻译等)上的表现。
+
+它通常由以下几部分构成：
+
+1. `examples`：少量的人工示例(dict 列表)；
+
+2. `example_prompt`：如何格式化每个示例(使用 `PromptTemplate`)；
+
+3. `prefix`：示例之前的文字说明(可选)；
+
+4. `suffix`：用户真正的问题模板；
+
+5. `input_variables`：最终 suffix 中需要传入的变量。
+
+假设开发一个提取语句城市名称的AI：
+
+```python title="FewShotPromptTemplate" icon="python"
+from langchain.prompts import FewShotPromptTemplate, PromptTemplate
+
+# 几个示例，说明模型该如何输出
+examples = [
+    {"input": "北京下雨吗", "output": "北京"},
+    {"input": "上海热吗", "output": "上海"},
+]
+
+# 定义如何格式化每个示例
+example_prompt = PromptTemplate(
+    input_variables=["input", "output"],
+    template="输入：{input}\n输出：{output}"
+)
+
+# 构建 FewShotPromptTemplate
+few_shot_prompt = FewShotPromptTemplate(
+    examples=examples,
+    example_prompt=example_prompt,
+    prefix="按提示的格式，输出内容",
+    suffix="输入：{input}\n输出：",  # 要放在示例后面的提示模板字符串。
+    input_variables=["input"]  # 传入的变量
+)
+
+# 生成最终的 prompt
+print(few_shot_prompt.format(input="天津今天刮风吗"))
+
+```
+
+```console title="生成最终的 prompt" icon="terminal"
+按提示的格式，输出内容
+
+输入：北京下雨吗
+输出：北京
+
+输入：上海热吗
+输出：上海
+
+输入：天津今天刮风吗
+输出：
+```
+
+#### 1.9.2 FewShotChatMessagePromptTemplate
+
+除了FewShotPromptTemplate之外，FewShotChatMessagePromptTemplate是专门为 聊天对话场景设计的少样本(few-shot)提示模板，它继承自 FewShotPromptTemplate ，但针对聊天消息的格式进行了优化。
+
+特点：
+
+* 自动将示例格式化为聊天消息( HumanMessage / AIMessage 等)
+
+* 输出结构化聊天消息( List\[BaseMessage] )
+
+* 保留对话轮次结构
+
+代码如下
+
+```python title="FewShotChatMessagePromptTemplate" icon="python"
+from langchain_core.prompts import ChatPromptTemplate, FewShotChatMessagePromptTemplate
+
+# 定义示例数据，用于少样本学习
+# 包含输入输出对，展示乘法运算的格式和结果
+examples = [
+    {"input": "1✖️2", "output": "2"},
+    {"input": "2✖️2", "output": "4"},
+]
+
+# 创建示例提示模板，定义了人类提问和AI回答的交互格式
+# human消息使用"{input}是多少"的模板
+# ai消息使用"{output}"的模板
+example_prompt = ChatPromptTemplate.from_messages([
+    ("human", "{input}是多少"),
+    ("ai", "{output}"),
+])
+
+# 创建少样本聊天消息提示模板
+# 使用预定义的示例数据和示例提示模板
+# 该模板将用于在最终提示中提供上下文示例
+few_shot_prompt = FewShotChatMessagePromptTemplate(
+    examples=examples,
+    example_prompt=example_prompt,
+)
+
+# 构建最终的提示模板
+# 组合系统角色设定、少样本示例和用户问题
+# 系统设定AI为数学奇才，然后添加示例，最后是用户的具体问题
+final_prompt = ChatPromptTemplate.from_messages([
+    ("system", "你是一名百年一遇的数学奇才")]) + few_shot_prompt + ChatPromptTemplate.from_messages([
+    ("human", "{question}"),
+])
+
+# 格式化并打印最终提示模板，传入具体问题"3✖️2"
+print(final_prompt.format(question="3✖️2"))
+```
+
+运行结果如下
+
+```console title="格式化并打印最终提示模板，传入具体问题'3✖️2'" icon="terminal"
+System: 你是一名百年一遇的数学奇才
+Human: 1✖️2是多少
+AI: 2
+Human: 2✖️2是多少
+AI: 4
+Human: 3✖️2
+```
+
+#### 1.9.3 Example selectors
+
+前面FewShotPromptTemplate的特点是，无论输入什么问题，都会包含全部示例。在实际开发中，我们可以根据当前输入，使用示例选择器，从大量候选示例中选取最相关的示例子集。
+
+使用的好处：避免盲目传递所有示例，减少 token 消耗的同时，还可以提升输出效果。
+
+示例选择策略：语义相似选择、长度选择、最大边际相关示例选择等
+
+* 语义相似选择：通过余弦相似度等度量方式评估语义相关性，选择与输入问题最相似的 k 个示例。
+
+* 长度选择：根据输入文本的长度，从候选示例中筛选出长度最匹配的示例。增强模型对文本结构的理解。比语义相似度计算更轻量，适合对响应速度要求高的场景。
+
+* 最大边际相关示例选择：优先选择与输入问题语义相似的示例；同时，通过惩罚机制避免返回同质化的内容。
+
+代码如下
+
+```python title="Example selectors" icon="python"
+from langchain_core.example_selectors import SemanticSimilarityExampleSelector
+from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
+from langchain_ollama import OllamaEmbeddings
+from langchain_community.vectorstores import FAISS
+
+# 创建示例模板，用于格式化输入输出对
+example_prompt = PromptTemplate.from_template(template="Input:{input},Output:{output}")
+
+# 定义示例数据集，包含输入词和对应的反义词
+examples = [
+    {"input": "高", "output": "矮"},
+    {"input": "高兴", "output": "悲伤"},
+    {"input": "高级", "output": "低级"},
+    {"input": "高楼大厦", "output": "低矮茅屋"},
+    {"input": "高瞻远瞩", "output": "鼠目寸光"}
+]
+
+# 初始化嵌入模型，用于将文本转换为向量表示
+embedding = OllamaEmbeddings(
+    model="qwen3:8b"  # 或其他 embedding 模型
+)
+
+# 创建语义相似度示例选择器，用于根据输入选择最相似的示例
+# 该选择器使用FAISS向量数据库存储示例嵌入，并返回最相似的k个示例
+example_selector = SemanticSimilarityExampleSelector.from_examples(
+    examples,
+    embedding,
+    FAISS,
+    k=2,
+)
+
+# 创建少样本提示模板，结合示例选择器和提示模板生成最终提示
+# 该模板会根据输入选择相似示例，并按照指定格式组合成完整提示
+similar_prompt = FewShotPromptTemplate(
+    example_selector=example_selector,
+    example_prompt=example_prompt,
+    prefix="给出每个词语的反义词",
+    suffix="输入:{input}",
+    input_variables=["input"]
+)
+
+# 格式化提示模板，将"开心"作为输入生成最终提示字符串
+prompt = similar_prompt.format(input="开心")
+print(prompt)
+```
+
+```console title="格式化提示模板，将'开心'作为输入生成最终提示字符串" icon="terminal"
+给出每个词语的反义词
+
+Input:高兴,Output:悲伤
+
+Input:高瞻远瞩,Output:鼠目寸光
+
+输入:开心
+```
+
+### 1.10 消息占位符提示词模板
+
+如果我们不确定消息何时生成，也不确定要插入几条消息，比如在提示词中添加聊天历史记忆这种场景，可以在ChatPromptTemplate添加`MessagesPlaceholder`占位符，在调用invoke时，在占位符处插入消息。
+
+#### 1.10.1 使用 MessagesPlaceholder
+
+```python title="使用MessagesPlaceholder" icon="python"
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
+# 构建一个 ChatPromptTemplate，包含多种消息类型：
+prompt = ChatPromptTemplate.from_messages([
+    # 插入 memory 占位符，用于填充历史对话记录(如多轮对话上下文)
+    MessagesPlaceholder("memory"),
+
+    # 添加一条系统消息，设定 AI 的角色或行为准则
+    SystemMessage("你是一个资深的Python应用开发工程师，请认真回答我提出的Python相关的问题"),
+
+    # 添加一条用户问题消息，用变量 {question} 表示
+    ("human", "{question}")
+])
+
+# 调用 prompt.invoke 来格式化整个 Prompt 模板
+# 传入的参数中：
+# - memory：是一组历史消息，表示之前的对话内容(多轮上下文)
+# - question：是当前用户的问题
+prompt_value = prompt.invoke({
+    "memory": [
+        # 用户第一轮说的话
+        HumanMessage("我的名字叫亮仔，是一名程序员"),
+        # AI 第一轮的回应
+        AIMessage("好的，亮仔你好")
+    ],
+    # 当前问题：结合上下文，测试模型是否记住了用户名字
+    "question": "请问我的名字叫什么？"
+})
+
+# 打印生成的完整 prompt 文本，格式化后的聊天记录
+print(prompt_value.to_string())
+
+```
+
+```console title="打印生成的完整 prompt 文本，格式化后的聊天记录" icon="terminal"
+Human: 我的名字叫亮仔，是一名程序员
+AI: 好的，亮仔你好
+System: 你是一个资深的Python应用开发工程师，请认真回答我提出的Python相关的问题
+Human: 请问我的名字叫什么？
+```
+
+#### 1.10.2 隐式使用 MessagesPlaceholder
+
+`"placeholder"` 是 `("placeholder", "{memory}")` 的简写语法，等价于 `MessagesPlaceholder("memory")`。
+
+```python title="隐式使用MessagesPlaceholder" icon="python"
+# 使用 ChatPromptTemplate 构建一个多角色对话提示模板
+prompt = ChatPromptTemplate.from_messages([
+    # 占位符，用于插入对话“记忆”内容，即之前的聊天记录(历史上下文)
+    ("placeholder", "{memory}"),
+
+    # 系统消息，用于设定 AI 的角色 —— 是一个资深的 Python 应用开发工程师
+    SystemMessage("你是一个资深的Python应用开发工程师，请认真回答我提出的Python相关的问题"),
+
+    # 用户当前提问，使用变量 {question} 进行动态填充
+    ("human", "{question}")
+])
+
+# 使用 invoke 方法传入上下文变量，生成格式化后的对话 prompt 内容
+prompt_value = prompt.invoke({
+    # memory：是之前的对话上下文，会被插入到 {memory} 的位置
+    "memory": [
+        # 用户第一轮对话
+        HumanMessage("我的名字叫亮仔，是一名程序员"),
+        # AI 第一轮回答
+        AIMessage("好的，亮仔你好")
+    ],
+
+    # 当前的问题，将替换模板中的 {question}
+    "question": "请问我的名字叫什么？"
+})
+# 使用 .to_string() 将格式化后的对话链转换成纯文本字符串，方便查看输出
+print(prompt_value.to_string())
+
+```
+
+```console title="使用 .to_string() 将格式化后的对话链转换成纯文本字符串，方便查看输出" icon="terminal"
+Human: 我的名字叫亮仔，是一名程序员
+AI: 好的，亮仔你好
+System: 你是一个资深的Python应用开发工程师，请认真回答我提出的Python相关的问题
+Human: 请问我的名字叫什么？
+```
+
+### 1.11 提示词模板仓库
+
+LangChain Hub 是一个公共的 prompt(提示词)仓库，访问地址是[https://smith.langchain.com/hub](https://smith.langchain.com/hub)。类似 HuggingFace Hub，但是专门存放 LangChain 的 Prompt、Chains、Tools 等。我们可以在 hub 中搜索通用的提示词模板并使用。代码如下：
+
+```python title="提示词模板仓库" icon="python"
+from langchain import hub
+
+prompt = hub.pull("hwchase17/openai-tools-agent")
+
+# 查看结构(Langchain PromptTemplate 的 repr)
+print(prompt)
+
+# 或者访问具体字段
+print(prompt.messages)
+```
+
+```console title="或者访问具体字段" icon="terminal"
+input_variables=['agent_scratchpad', 'input'] optional_variables=['chat_history'] input_types={'chat_history': list[typing.Annotated[typing.Union[typing.Annotated[langchain_core.messages.ai.AIMessage, Tag(tag='ai')], typing.Annotated[langchain_core.messages.human.HumanMessage, Tag(tag='human')], typing.Annotated[langchain_core.messages.chat.ChatMessage, Tag(tag='chat')], typing.Annotated[langchain_core.messages.system.SystemMessage, Tag(tag='system')], typing.Annotated[langchain_core.messages.function.FunctionMessage, Tag(tag='function')], typing.Annotated[langchain_core.messages.tool.ToolMessage, Tag(tag='tool')], typing.Annotated[langchain_core.messages.ai.AIMessageChunk, Tag(tag='AIMessageChunk')], typing.Annotated[langchain_core.messages.human.HumanMessageChunk, Tag(tag='HumanMessageChunk')], typing.Annotated[langchain_core.messages.chat.ChatMessageChunk, Tag(tag='ChatMessageChunk')], typing.Annotated[langchain_core.messages.system.SystemMessageChunk, Tag(tag='SystemMessageChunk')], typing.Annotated[langchain_core.messages.function.FunctionMessageChunk, Tag(tag='FunctionMessageChunk')], typing.Annotated[langchain_core.messages.tool.ToolMessageChunk, Tag(tag='ToolMessageChunk')]], FieldInfo(annotation=NoneType, required=True, discriminator=Discriminator(discriminator=<function _get_type at 0x7fc7621fb7e0>, custom_error_type=None, custom_error_message=None, custom_error_context=None))]], 'agent_scratchpad': list[typing.Annotated[typing.Union[typing.Annotated[langchain_core.messages.ai.AIMessage, Tag(tag='ai')], typing.Annotated[langchain_core.messages.human.HumanMessage, Tag(tag='human')], typing.Annotated[langchain_core.messages.chat.ChatMessage, Tag(tag='chat')], typing.Annotated[langchain_core.messages.system.SystemMessage, Tag(tag='system')], typing.Annotated[langchain_core.messages.function.FunctionMessage, Tag(tag='function')], typing.Annotated[langchain_core.messages.tool.ToolMessage, Tag(tag='tool')], typing.Annotated[langchain_core.messages.ai.AIMessageChunk, Tag(tag='AIMessageChunk')], typing.Annotated[langchain_core.messages.human.HumanMessageChunk, Tag(tag='HumanMessageChunk')], typing.Annotated[langchain_core.messages.chat.ChatMessageChunk, Tag(tag='ChatMessageChunk')], typing.Annotated[langchain_core.messages.system.SystemMessageChunk, Tag(tag='SystemMessageChunk')], typing.Annotated[langchain_core.messages.function.FunctionMessageChunk, Tag(tag='FunctionMessageChunk')], typing.Annotated[langchain_core.messages.tool.ToolMessageChunk, Tag(tag='ToolMessageChunk')]], FieldInfo(annotation=NoneType, required=True, discriminator=Discriminator(discriminator=<function _get_type at 0x7fc7621fb7e0>, custom_error_type=None, custom_error_message=None, custom_error_context=None))]]} partial_variables={'chat_history': []} metadata={'lc_hub_owner': 'hwchase17', 'lc_hub_repo': 'openai-tools-agent', 'lc_hub_commit_hash': 'c18672812789a3b9697656dd539edf0120285dcae36396d0b548ae42a4ed66f5'} messages=[SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=[], input_types={}, partial_variables={}, template='You are a helpful assistant'), additional_kwargs={}), MessagesPlaceholder(variable_name='chat_history', optional=True), HumanMessagePromptTemplate(prompt=PromptTemplate(input_variables=['input'], input_types={}, partial_variables={}, template='{input}'), additional_kwargs={}), MessagesPlaceholder(variable_name='agent_scratchpad')]
+[SystemMessagePromptTemplate(prompt=PromptTemplate(input_variables=[], input_types={}, partial_variables={}, template='You are a helpful assistant'), additional_kwargs={}), Me
+```

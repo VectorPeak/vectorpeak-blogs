@@ -1,0 +1,166 @@
+---
+title: "链表理论基础"
+description: "从类型、存储方式和常见操作理解链表"
+icon: "link"
+---
+
+## 什么是链表
+
+<Badge icon="clock" color="green">Written: 2026.06</Badge>
+链表是一种线性数据结构。
+
+和数组不同，链表中的节点通常不是连续存储的，而是通过指针串起来。每个节点通常包含：
+
+* 数据域
+* 指针域
+
+<Note>
+  链表题的核心通常不是改值，而是改指针。
+</Note>
+
+## 链表的类型
+
+刷题里最常见的链表有三种：
+
+* 单链表
+* 双链表
+* 循环链表
+
+单链表最常见，双链表多一个 `prev` 指针，循环链表的尾节点会重新指回头节点。
+
+下面的代码以单链表为例：
+
+```python
+class ListNode:
+    def __init__(self, val: int = 0, next: "ListNode | None" = None):
+        self.val = val
+        self.next = next
+```
+
+## 链表的存储方式
+
+数组依赖连续内存，所以适合按下标访问。链表依赖指针连接，所以更适合局部插入和删除。
+
+* 数组更适合查
+* 链表更适合改
+
+<Tip>
+  如果题目频繁要求你在头部或中间插入、删除，而且不强调随机访问，就应该优先想到链表。
+</Tip>
+
+## 单链表结构示意
+
+![单链表结构示意](/images/leetcode/singly-linked-list-structure.svg)
+
+这张图里，`head` 是链表入口，`null` 表示链表结尾。每个节点左侧是数据域，右侧的小圆点表示 `next` 指针。
+
+## 常见操作
+
+### 删除节点
+
+删除链表节点的关键是改前驱节点的 `next`。
+
+```python
+class ListNode:
+    def __init__(self, val: int = 0, next: "ListNode | None" = None):
+        self.val = val
+        self.next = next
+
+
+def remove_elements(head: ListNode | None, target: int) -> ListNode | None:
+    dummy = ListNode(0, head)
+    prev = dummy
+    cur = head
+
+    while cur:
+        if cur.val == target:
+            prev.next = cur.next
+        else:
+            prev = cur
+        cur = cur.next
+
+    return dummy.next
+```
+
+<Warning>
+  链表删除最容易错的地方是指针顺序。连接关系一旦改坏，后面的节点就可能直接丢失。
+</Warning>
+
+### 插入节点
+
+如果已经知道前驱节点，插入通常只需要常数次操作。
+
+```python
+def insert_after(prev: ListNode, val: int) -> None:
+    new_node = ListNode(val)
+    new_node.next = prev.next
+    prev.next = new_node
+```
+
+### 查询节点
+
+链表不能像数组那样通过下标随机访问，只能从头开始遍历。
+
+下面这个示例里，`k` 从 `0` 开始计数。
+
+```python
+def get_kth_node(head: ListNode | None, k: int) -> ListNode | None:
+    cur = head
+    step = 0
+
+    while cur and step < k:
+        cur = cur.next
+        step += 1
+
+    return cur
+```
+
+## 复杂度对比
+
+| 操作      | 数组     | 链表     |
+| ------- | ------ | ------ |
+| 随机访问    | `O(1)` | `O(n)` |
+| 头部插入    | `O(n)` | `O(1)` |
+| 已知位置时删除 | `O(n)` | `O(1)` |
+
+## 快慢指针
+
+快慢指针是链表题里的高频技巧，常用于：
+
+* 找中点
+* 找倒数第 `k` 个节点
+* 判断是否有环
+
+```python
+def has_cycle(head: ListNode | None) -> bool:
+    slow = head
+    fast = head
+
+    while fast and fast.next:
+        slow = slow.next
+        fast = fast.next.next
+        if slow == fast:
+            return True
+
+    return False
+```
+
+## 做题抓手
+
+写链表题前，先问自己四件事：
+
+1. 要改哪个节点的 `next`
+2. 需不需要前驱节点
+3. 头节点会不会被修改
+4. 这题是不是快慢指针模型
+
+## 学习建议
+
+建议按这个顺序练：
+
+* 移除链表元素
+* 设计链表
+* 反转链表
+* 两两交换链表中的节点
+* 删除链表的倒数第 `N` 个节点
+* 环形链表

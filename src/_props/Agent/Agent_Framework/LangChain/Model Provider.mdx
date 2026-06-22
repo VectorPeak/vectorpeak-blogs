@@ -1,0 +1,380 @@
+---
+title: "Model Provider"
+icon: "brain"
+description: "介绍 LangChain 中模型供应商接入层的作用、配置方式与版本兼容注意点"
+---
+
+## 1. Model介绍
+
+<Badge icon="clock" color="green">Written: 2026.06</Badge>
+一个 AI 应用的核心就是它所依赖的大语言模型，LangChain作为一个“工具”，不提供任何 LLMs，而是依赖于第三方集成各种大模型。比如，将 OpenAI、Anthropic、Hugging Face 、LlaMA、阿里Qwen、ChatGLM等平台的模型无缝接入到你的应用
+
+LangChain 模型接口可参考官方文档：[https://reference.langchain.com/python/langchain\_core/language\_models/](https://reference.langchain.com/python/langchain_core/language_models/)
+
+### 1.1 Model的分类
+
+LangChain中将大语言模型分为以下几种，我们主要使用的是聊天模型：
+
+| 模型类型           | 输入形式                                                                        | 输出形式                            | 主要特点                        | 典型适用场景                                 |
+| -------------- | --------------------------------------------------------------------------- | ------------------------------- | --------------------------- | -------------------------------------- |
+| **LLM**        | 纯文本字符串                                                                      | 文本字符串                           | 基础文本生成模型；无上下文记忆；高速、轻量       | 单轮问答；摘要生成；文本改写/扩写；指令执行                 |
+| **ChatModel**  | 消息列表，例如 `List[BaseMessage]`，包含 `HumanMessage`、`SystemMessage`、`AIMessage` 等 | 聊天消息对象，例如 `AIMessage`           | 面向对话场景；支持多轮上下文；更贴近人类对话逻辑    | 智能助手；客服机器人；多轮推理任务；LangChain Agent 工具调用 |
+| **Embeddings** | 文本字符串或列表，例如 `str` 或 `List[str]`                                             | 向量，例如 `List[float]` 或 `ndarray` | 将文本转化为语义向量；可用于相似度搜索；通常不生成文本 | RAG 文本检索增强；知识库问答；聚类、分类、推荐系统            |
+
+### 1.2 Model 继承关系
+
+在 LangChain 的类结构中，顶层基类是 `BaseLanguageModel`，用于定义模型的通用接口。它分为两支：`BaseChatModel` 和 `BaseLLM`
+![](https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1760497169411-ac38c743-40e1-4440-98ae-c55b1a766127.png)
+
+接入聊天模型时需继承 `BaseChatModel`，如常用的 `ChatOpenAI`；而文本生成模型则继承 `BaseLLM`，如 `OpenAI`
+
+### 1.3 Chat Model 主要参数
+
+在构建聊天模型时，有一些标准化参数：
+
+| 参数名           | 参数含义                                          |
+| ------------- | --------------------------------------------- |
+| `model`       | 指定使用的大语言模型名称(如 `"gpt-4"`、`"gpt-3.5-turbo"` 等) |
+| `temperature` | 温度，温度越高，输出内容越随机；温度越低，输出内容越确定                  |
+| `timeout`     | 请求超时时间                                        |
+| `max_tokens`  | 生成内容的最大token数                                 |
+| `stop`        | 模型在生成时遇到这些“停止词”将立刻停止生成，常用于控制输出的边界             |
+| `max_retries` | 最大重试请求次数                                      |
+| `api_key`     | 大模型供应商提供的API秘钥                                |
+| `base_url`    | 大模型供应商API 请求地址                                |
+
+以上的标准参数，也只是适用于部分的大语言模型，有些参数在特定模型中可能是无效的，这些标准化参数仅对 LangChain 官方提供集成包的模型(如 `langchain-openai`、`langchain-anthropic`)生效，在langchain-community包中的第三方模型，则不需要遵守这些标准化参数的规则
+
+### 1.4 Message组件
+
+调用模型后返回了一条AI消息，在LangChain中，消息有几种不同的类型。所有消息都有 `type` 、 `content` 、 `response_metadata` 等属性
+
+| 属性名                 | 属性作用                                                                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `type`              | 描述了是哪个类型的消息，包含类型有"user"、“ai”、“system” 和 “tool”                                                                                                                                 |
+| `content`           | 通常是字符串，有些情况下可能是字典列表，这个字典列表用于大模型的多模态输出。                                                                                                                                         |
+| `name`              | 用来区分当消息类型相同，对消息进行区分，但不是所有模型都支持这一功能。                                                                                                                                            |
+| `response_metadata` | AI消息才会包含的属性，大语言模型的响应中附加元数据，根据不同模型会有不同，如可能会包含本次 token 使用量等信息。                                                                                                                   |
+| `tool_calls`        | AI消息才会包含的属性，当大语言模型决定调用工具时，在 `AIMessage` 中就会包含这个属性，可以通过 `.tool_calls` 属性进行获取该属性返回一个 `ToolCall` 列表，每个 `ToolCall` 是一个字典，包含以下字段：`name` :应调用的工具名`args` : 调用工具的参数`id` : 工具调用的唯一标识 ID |
+
+## 2. 开发环境配置
+
+### 2.1 创建项目
+
+推荐使用 uv 初始化并管理项目，uv 具体操作可参考文档：[https://www.cuiliangblog.cn/detail/section/228701279](https://www.cuiliangblog.cn/detail/section/228701279)
+
+```console title= "uv 快速搭建 LangChain 环境" icon= "terminal"
+# 创建项目
+# uv init LangChainDemo
+Initialized project `langchaindemo` at `/opt/PycharmProjects/LangChainDemo`
+# 进入项目目录
+# cd LangChainDemo
+# 安装Langchain
+# uv add langchain
+Using CPython 3.12.3 interpreter at: /usr/bin/python3.12
+Creating virtual environment at: .venv
+Resolved 32 packages in 43.66s
+Prepared 24 packages in 1m 00s
+Installed 29 packages in 131ms
+ + annotated-types==0.7.0
+ + anyio==4.9.0
+ + certifi==2025.7.14
+ + charset-normalizer==3.4.2
+ + greenlet==3.2.3
+ + h11==0.16.0
+ + httpcore==1.0.9
+ + httpx==0.28.1
+ + idna==3.10
+ + jsonpatch==1.33
+ + jsonpointer==3.0.0
+ + langchain==0.3.26
+ + langchain-core==0.3.69
+ + langchain-text-splitters==0.3.8
+ + langsmith==0.4.8
+ + orjson==3.11.0
+ + packaging==25.0
+ + pydantic==2.11.7
+ + pydantic-core==2.33.2
+ + pyyaml==6.0.2
+ + requests==2.32.4
+ + requests-toolbelt==1.0.0
+ + sniffio==1.3.1
+ + sqlalchemy==2.0.41
+ + tenacity==9.1.2
+ + typing-extensions==4.14.1
+ + typing-inspection==0.4.1
+ + urllib3==2.5.0
+ + zstandard==0.23.0
+```
+
+### 2.2 创建密钥环境变量
+
+```console title="创建.env文件" icon="terminal"
+# touch .env
+```
+
+```python title=".env 文件内容:" icon="file"
+DEEPSEEK_API_KEY=XXXX
+QWEN_API_KEY=XXXX
+OPENAI_API_KEY=XXX
+```
+
+```python title="通过 python-dotenv 库读取 env 文件中的环境变量，并加载到当前运行的环境中" icon="python"
+import os
+from dotenv import load_dotenv
+load_dotenv(override=True)
+
+deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+# print(deepseek_api_key)  # 可以通过打印查看
+```
+
+## 3. 接入大模型
+
+### 3.1 接入 Ollama
+
+参考文档：[https://python.langchain.com/docs/integrations/chat/ollama/](https://python.langchain.com/docs/integrations/chat/ollama/)
+
+```python title="接入Ollama" icon="python"
+from langchain_ollama import ChatOllama
+
+# 设置本地模型，不使用深度思考
+model = ChatOllama(base_url="http://localhost:11434", model="qwen3:14b", reasoning=False)
+
+# 打印结果
+print(model.invoke("什么是LangChain?"))
+```
+
+````console title="执行结果如下" icon="terminal"
+content='**LangChain** 是一个用于构建**基于大型语言模型(LLMs)的应用程序**的开源框架。它提供了一系列工具、模块和接口，使得开发者可以更加方便地将大型语言模型集成到各种应用场景中，例如聊天机器人、自动化流程、数据分析、内容生成等。\n\n---\n\n## 🧠 LangChain 的主要功能\n\nLangChain 的核心目标是**让构建基于 LLM 的应用变得简单、可扩展、可组合**。它提供以下关键功能：\n\n### 1. **LLM 集成**\n- 支持多种大型语言模型(如 OpenAI、Anthropic、Google Gemini、Hugging Face、本地 LLM 等)。\n- 提供统一的接口，方便切换不同的模型。\n\n### 2. **数据处理**\n- 提供工具用于从数据库、API、文档等来源加载和处理数据。\n- 支持文档的加载、分割、向量化等操作。\n\n### 3. **记忆(Memory)**\n- 提供**短期记忆**(如聊天历史)和**长期记忆**(如数据库、向量存储)的支持。\n- 支持多种记忆方式，如 `ChatMessageHistory`、`ConversationBufferMemory` 等。\n\n### 4. **代理(Agent)**\n- 提供**智能代理(Agent)**，可以执行任务、搜索信息、调用工具等。\n- 支持多种代理类型(如 `LLMChain`、`AgentExecutor` 等)。\n\n### 5. **链(Chain)**\n- 提供**链(Chain)**概念，将多个操作(如模型调用、数据处理、工具调用)串联起来。\n- 支持 `LLMChain`、`SimpleSequentialChain`、`SequentialChain` 等。\n\n### 6. **工具(Tools)**\n- 提供多种工具(如搜索工具、数据库查询工具、计算器等)，可以被代理或链调用。\n- 支持自定义工具的开发与集成。\n\n### 7. **向量存储(Vector Store)**\n- 支持与向量数据库(如 FAISS、Pinecone、Weaviate、Chroma)集成。\n- 用于实现**向量搜索**、**语义检索**等功能。\n\n---\n\n## 🛠️ LangChain 的典型应用场景\n\n- **聊天机器人**(Chatbot)：构建具有上下文理解能力的对话系统。\n- **自动化助手**(AI Agent)：执行任务、搜索信息、调用工具。\n- **内容生成**：自动生成文章、邮件、代码、文档等。\n- **数据分析**：结合 LLM 与数据处理工具进行智能数据分析。\n- **知识库检索**：基于向量存储构建智能问答系统。\n\n---\n\n## 📦 安装 LangChain\n\n你可以通过 pip 安装 LangChain：\n\n```bash\npip install langchain\n```\n\n---\n\n## 📚 学习资源\n\n- 官方文档：https://docs.langchain.com\n- GitHub 仓库：https://github.com/langchain-ai/langchain\n- 示例代码：https://github.com/langchain-ai/langchain/tree/main/docs/src\n\n---\n\n## 🌟 总结\n\n**LangChain** 是一个强大且灵活的框架，它让开发者可以更轻松地构建基于大型语言模型的应用。它不仅提供丰富的工具和模块，还支持高度的可扩展性和可组合性，是 AI 应用开发中的一个重要工具。\n\n如果你正在开发基于 LLM 的应用，LangChain 是一个非常值得使用的框架。' additional_kwargs={} response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-15T14:19:06.950494871Z', 'done': True, 'done_reason': 'stop', 'total_duration': 18186536365, 'load_duration': 14705460, 'prompt_eval_count': 20, 'prompt_eval_duration': 6723067, 'eval_count': 757, 'eval_duration': 18164078512, 'model_name': 'qwen3:14b'} id='run--b8bbd603-3d74-48fe-9460-c6bbed5fe9bb-0' usage_metadata={'input_tokens': 20, 'output_tokens': 757, 'total_tokens': 777}
+````
+
+### 3.2 接入 DeepSeek
+
+参考文档：[https://python.langchain.com/api\_reference/deepseek/chat\_models/langchain\_deepseek.chat\_models.ChatDeepSeek.html](https://python.langchain.com/api_reference/deepseek/chat_models/langchain_deepseek.chat_models.ChatDeepSeek.html)
+
+申请地址：[https://platform.deepseek.com/](https://platform.deepseek.com/)
+
+支持模型列表
+
+* `deepseek-chat`：通用对话模型
+
+* `deepseek-coder`：偏向代码理解与生成
+
+* `deepseek-llm`：较大通用模型(如 DeepSeek-VL)
+
+* `deepseek-moe`：Mixture of Experts 多专家模型
+
+```python title="接入DeepSeek" icon="python"
+import os
+from dotenv import load_dotenv
+from langchain_deepseek import ChatDeepSeek
+load_dotenv(override=True)
+deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+
+# 初始化 deepseek
+model = ChatDeepSeek(
+    model="deepseek-chat",
+    temperature=0,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2,
+    api_key=deepseek_api_key,
+)
+
+# 打印结果
+print(model.invoke("什么是LangChain?"))
+```
+
+### 3.3 接入通义千问
+
+参考文档：[https://python.langchain.com/api\_reference/community/chat\_models/langchain\_community.chat\_models.tongyi.ChatTongyi.html](https://python.langchain.com/api_reference/community/chat_models/langchain_community.chat_models.tongyi.ChatTongyi.html)
+
+申请地址：[https://dashscope.console.aliyun.com/overview](https://dashscope.console.aliyun.com/overview)
+
+```python title="接入Qwen" icon="python"
+import os
+from dotenv import load_dotenv
+from langchain_community.chat_models import ChatTongyi
+load_dotenv(override=True)
+qwen_api_key = os.getenv("QWEN_API_KEY")
+
+# 初始化 deepseek
+model = ChatTongyi(
+    model="deepseek-chat",
+    temperature=0,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2,
+    api_key=qwen_api_key,
+)
+
+# 打印结果
+print(model.invoke("什么是LangChain?"))
+```
+
+### 3.4 接入 openAI
+
+参考文档：[https://python.langchain.com/docs/integrations/chat/](https://python.langchain.com/docs/integrations/chat/)
+
+申请地址：[https://platform.openai.com/account/api-keys](https://platform.openai.com/account/api-keys)
+
+需要注意的是国内网络原因不能直接调用，可以通过第三方平台调用。例如[https://closeapi.net/](https://closeapi.net/)
+
+```python title="接入OpenAI" icon="python"
+import os
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
+load_dotenv(override=True)
+openai_api_key = os.getenv("OPEN_API_KEY")
+
+model = ChatOpenAI(
+    api_key=openai_api_key,
+    model="gpt-4",  # 或者 gpt-3.5-turbo
+    temperature=0.3,  # 可调
+)
+
+# 打印结果
+print(model.invoke("什么是LangChain?"))
+```
+
+## 4. 模型调用方法
+
+### 4.1 对话模型
+
+聊天模型，除了将字符串作为输入外，还可以使用聊天消息作为输入，并返回聊天消息作为输出。LangChain有一些内置的消息类型：
+
+* `HumanMessage`：人类消息，type为"user"，表示来自用户输入。比如“实现 一个快速排序方法”。
+
+* `AIMessage`： AI 消息，type为"ai"，这可以是文本，也可以是调用工具的请求。
+
+* `SystemMessage`：系统消息，type为"system"，告诉大模型当前的背景是什么，应该如何做，并不是所有模型提供商都支持这个消息类型
+
+* `ToolMessage/FunctionMessage`：工具消息，type为"tool"，用于函数调用结果的消息类型
+
+* `ChatMessage`：可以自定义角色的通用消息类型。
+
+```python title="调用ChatModel(对话模型)" icon="python"
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_ollama import ChatOllama
+
+# 设置本地模型，不使用深度思考
+model = ChatOllama(base_url="http://localhost:11434", model="qwen3:14b", reasoning=False)
+# 构建消息列表
+messages = [SystemMessage(content="你叫小亮，是一个乐于助人的人工助手"),
+            HumanMessage(content="你是谁")
+            ]
+# 调用大模型
+response = model.invoke(messages)
+# 打印结果
+print(response.content)
+print(type(response))
+```
+
+```console title="执行结果如下" icon="terminal"
+我是小亮，一个乐于助人的人工助手。我在这里是为了帮助你解决问题、提供建议和支持。无论是生活上的小烦恼，还是工作上的难题，我都会尽力帮你。有什么需要帮忙的吗？
+<class 'langchain_core.messages.ai.AIMessage'>
+```
+
+其中SystemMessage 就是系统提示词，关于提示词更多内容，可以访问：[https://www.cuiliangblog.cn/detail/section/228046450](https://www.cuiliangblog.cn/detail/section/228046450)
+
+### 4.2 流式输出
+
+在Langchain中，语言模型的输出分为了两种主要的模式：**流式输出**与**非流式输出**
+
+**非流式输出**：这是Langchain与LLM交互时的默认行为，是最简单、最稳定的语言模型调用方式。当用户发出请求后，系统在后台等待模型生成完整响应，然后一次性将全部结果返回。
+举例：用户提问，请编写一首诗，系统在静默数秒后突然弹出了完整的诗歌。(体验较单调)
+
+在大多数问答、摘要、信息抽取类任务中，非流式输出提供了结构清晰、逻辑完整的结果，适合快速集成和部署。
+
+**流式输出**：一种更具交互感的模型输出方式，用户不再需要等待完整答案，而是能看到模型逐个token 地实时返回内容。
+
+举例：用户提问，请编写一首诗，当问题刚刚发送，系统就开始一字一句(逐个token)进行回复，感觉是一边思考一边输出。更像是“实时对话”，更为贴近人类交互的习惯，更有吸引力。适合构建强调“实时反馈”的应用，如聊天机器人、写作助手等。
+
+Langchain 中通过设置 stream=True 并配合 回调机制 来启用流式输出。
+
+通过 model.stream 方法即可实现流式调用，代码如下：
+
+```python title="设置为流式输出" icon="python"
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_ollama import ChatOllama
+
+# 设置本地模型，不使用深度思考
+model = ChatOllama(base_url="http://localhost:11434", model="qwen3:14b", reasoning=False)
+# 构建消息列表
+messages = [SystemMessage(content="你叫小亮，是一个乐于助人的人工助手"),
+            HumanMessage(content="你是谁")
+            ]
+# 流式调用大模型
+response = model.stream(messages)
+# 流式打印结果
+for chunk in response:
+    print(chunk.content, end="",flush=True) # 刷新缓冲区 (无换行符，缓冲区未刷新，内容可能不会立即显示)
+print("\n")
+print(type(response))
+```
+
+```console title="执行结果如下" icon="terminal"
+我是小亮，一个乐于助人的人工助手。很高兴认识你！我在这里可以帮助你解决问题、提供信息，或者只是陪你聊天。有什么我可以帮你的吗？
+
+<class 'generator'>
+```
+
+### 4.3 批量调用
+
+LangChain 支持 **批量调用(Batch Inference)**，也就是**一次性向模型提交多个输入并并行处理**，从而显著提升吞吐量。
+
+当你需要让模型处理多条输入时，比如：文本摘要批量生成、多轮任务预处理逐条 `.invoke()` 会导致网络请求多次、速度慢、成本高等问题，而LangChain 提供的 `**.batch()**` 接口 能在内部自动并行执行。
+
+```python title="进行批量调用" icon="python"
+from langchain_ollama import ChatOllama
+
+# 设置本地模型，不使用深度思考
+model = ChatOllama(base_url="http://localhost:11434", model="qwen3:14b", reasoning=False)
+# 问题列表
+questions = [
+    "什么是LangChain？",
+    "Python的生成器是做什么的？",
+    "解释一下Docker和Kubernetes的关系"
+]
+# 批量调用大模型
+response = model.batch(questions)
+for q, r in zip(questions, response):
+    print(f"问题：{q}\n回答：{r}\n")
+```
+
+````console title="执行结果如下" icon="terminal"
+问题：什么是LangChain？
+回答：content='**LangChain** 是一个用于构建基于大型语言模型(LLM)的应用程序的框架，它提供了多种工具和模块，帮助开发者更高效地创建、集成和部署人工智能应用。\n\n---\n\n### 🎯 LangChain 的主要目标：\n\nLangChain 的核心目标是让开发者能够：\n\n- **更简单地构建 AI 应用**(如聊天机器人、助手、自动问答系统等)。\n- **更灵活地集成 LLM(如 GPT、LLaMA、Claude 等)**。\n- **更好地控制和管理 AI 应用的流程**(例如记忆、提示工程、数据处理等)。\n\n---\n\n### 🔧 LangChain 的核心功能模块：\n\nLangChain 提供了多个模块，帮助开发者构建完整的 AI 应用，主要包括：\n\n1. **Prompt Templates(提示模板)**\n   - 用于构建和管理提示(Prompt)的模板，使得提示工程更系统和可复用。\n\n2. **LLM(Large Language Models)**\n   - 集成多种大型语言模型(如 OpenAI, Anthropic, Google, Hugging Face 等)。\n\n3. **Memory(记忆)**\n   - 支持会话记忆、长期记忆等，用于构建具有上下文感知能力的 AI 应用。\n\n4. **Chains(链)**\n   - 允许将多个 LLM 调用、工具调用、数据处理步骤串联成一个“链式”流程，便于构建复杂的 AI 应用。\n\n5. **Agents(智能代理)**\n   - 构建具有自主行为的 AI 代理，可以执行任务、调用工具、解决问题。\n\n6. **Tools(工具)**\n   - 提供各种工具接口，如 API 调用、数据库查询、文件读取等，使得 AI 可以与外部系统交互。\n\n7. **Database(数据库)**\n   - 提供与向量数据库(如 Chroma、FAISS、Pinecone)集成的功能，用于构建基于向量检索的 AI 应用。\n\n---\n\n### 🧠 LangChain 的典型应用场景：\n\n- **聊天机器人**(如客服助手、虚拟助手)\n- **内容生成**(如文章、代码、邮件等)\n- **自动化任务处理**(如数据分析、信息提取、报告生成)\n- **智能问答系统**\n- **AI 教学助手、编程助手等**\n\n---\n\n### 📌 LangChain 的优势：\n\n- **模块化设计**：各个组件解耦，易于扩展和替换。\n- **支持多种 LLM 和工具**：兼容多个主流模型和 API。\n- **社区活跃**：有大量文档、教程和开源项目支持。\n- **适合从原型到生产部署**：适合快速迭代和部署。\n\n---\n\n### 🛠️ 如何开始使用 LangChain？\n\n你可以通过 Python 安装 LangChain：\n\n```bash\npip install langchain\n```\n\n然后可以快速构建一个简单的 Chain：\n\n```python\nfrom langchain.chains import LLMChain\nfrom langchain.prompts import PromptTemplate\nfrom langchain.llms import OpenAI\n\ntemplate = "将以下内容翻译成法语：{text}"\nprompt = PromptTemplate(input_variables=["text"], template=template)\n\nllm = OpenAI(model_name="text-davinci-003", temperature=0)\nchain = LLMChain(llm=llm, prompt=prompt)\n\nresult = chain.run("Hello, how are you?")\nprint(result)\n```\n\n---\n\n### 🌐 官方文档和资源：\n\n- 官网：https://www.langchain.com/\n- GitHub：https://github.com/hwchong/langchain\n- 文档：https://langchain.readthedocs.io/\n\n---\n\n如果你有具体的应用场景或问题，我也可以帮你用 LangChain 实现一个简单的示例。需要吗？' additional_kwargs={} response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-15T15:00:00.745156905Z', 'done': True, 'done_reason': 'stop', 'total_duration': 20210334355, 'load_duration': 18104419, 'prompt_eval_count': 20, 'prompt_eval_duration': 6073304, 'eval_count': 811, 'eval_duration': 20185082782, 'model_name': 'qwen3:14b'} id='run--3923dc24-3945-4d19-a7dd-ee323234b808-0' usage_metadata={'input_tokens': 20, 'output_tokens': 811, 'total_tokens': 831}
+
+问题：Python的生成器是做什么的？
+回答：content='在 Python 中，**生成器(Generator)** 是一种特殊的迭代器(Iterator)，它用于**高效地生成一个序列的值**，而不是一次性将所有值存储在内存中。\n\n---\n\n### 一、生成器的作用\n\n生成器主要用于以下场景：\n\n1. **节省内存**：  \n   当处理大量数据时，如果使用列表(List)来存储所有数据，会占用大量内存。而使用生成器，可以逐个生成数据，避免一次性加载所有数据。\n\n2. **惰性求值(Lazy Evaluation)**：  \n   生成器只有在需要时才计算下一个值，而不是一开始就全部计算。\n\n3. **简化代码**：  \n   使用 `yield` 关键字可以轻松地将一个函数变成生成器，而不必手动实现 `__iter__()` 和 `__next__()` 方法。\n\n---\n\n### 二、生成器的创建方式\n\n#### 1. 使用 `yield` 关键字\n\n```python\ndef my_generator():\n    yield 1\n    yield 2\n    yield 3\n\ngen = my_generator()\nfor value in gen:\n    print(value)\n```\n\n**输出：**\n```\n1\n2\n3\n```\n\n在这个例子中，`my_generator` 是一个生成器函数，每次调用 `yield` 会返回一个值，并**暂停函数的执行**，直到下一次调用。\n\n---\n\n#### 2. 使用生成器表达式(Generator Expression)\n\n生成器表达式类似于列表推导式，但使用括号 `()` 代替方括号 `[]`：\n\n```python\nsquares = (x**2 for x in range(5))\nfor square in squares:\n    print(square)\n```\n\n**输出：**\n```\n0\n1\n4\n9\n16\n```\n\n---\n\n### 三、生成器的特点\n\n- 生成器函数在第一次调用时，会返回一个生成器对象。\n- 使用 `next()` 函数可以手动获取生成器的下一个值。\n- 当生成器没有更多值时，会抛出 `StopIteration` 异常。\n- 生成器是**单次使用**的，不能重复迭代，除非重新生成。\n\n---\n\n### 四、生成器 vs 列表\n\n| 特性         | 列表(List)                 | 生成器(Generator)             |\n|--------------|----------------------------|--------------------------------|\n| 内存占用     | 高(一次性存储所有元素)   | 低(按需生成)                 |\n| 使用场景     | 数据量小、需要频繁访问     | 数据量大、只遍历一次           |\n| 语法         | 使用 `[]`                  | 使用 `yield` 或 `()`           |\n| 是否可迭代   | 是                         | 是                             |\n\n---\n\n### 五、总结\n\n生成器是 Python 中用于**逐个生成数据**的工具，它在处理大数据、节省内存、实现惰性求值等方面非常有用。通过 `yield` 关键字，你可以轻松地将一个函数转换为生成器。\n\n---\n\n如果你有具体的应用场景，我可以帮你写出更具体的生成器示例。' additional_kwargs={} response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-15T15:00:34.996272865Z', 'done': True, 'done_reason': 'stop', 'total_duration': 54460587940, 'load_duration': 18236802, 'prompt_eval_count': 24, 'prompt_eval_duration': 5754157, 'eval_count': 661, 'eval_duration': 15917225527, 'model_name': 'qwen3:14b'} id='run--f545a03b-2648-4c92-bf4c-1ffc5b7ac462-0' usage_metadata={'input_tokens': 24, 'output_tokens': 661, 'total_tokens': 685}
+
+问题：解释一下Docker和Kubernetes的关系
+回答：content='Docker 和 Kubernetes 是两个在现代软件开发和云原生(Cloud Native)领域中非常重要的工具，它们之间有着密切的关系，但又各自有不同的职责和功能。\n\n---\n\n## 1. **Docker 是什么？**\n\nDocker 是一个开源的**容器化平台**，它允许开发者将应用程序及其依赖打包成一个轻量级、可移植的容器(Container)中，这个容器可以在任何支持 Docker 的环境中运行，而不会因为环境差异导致“在我机器上能运行，但在你那里不行”的问题。\n\n### Docker 的主要功能包括：\n- **容器镜像(Image)**：一个包含应用程序和所有依赖的只读模板。\n- **容器(Container)**：镜像的运行实例。\n- **Dockerfile**：用于定义如何构建镜像的文本文件。\n- **Docker Engine**：运行容器的引擎。\n\n---\n\n## 2. **Kubernetes 是什么？**\n\nKubernetes(简称 K8s)是一个**容器编排系统**，用于自动化部署、扩展和管理容器化应用。它最初由 Google 开发，现在由 Cloud Native Computing Foundation(CNCF)维护。\n\n### Kubernetes 的主要功能包括：\n- **容器编排**：自动部署、扩展、管理和调度容器。\n- **服务发现与负载均衡**：自动分配服务和负载。\n- **自我修复**：自动重启失败的容器、替换和重新部署故障节点。\n- **滚动更新与回滚**：实现无中断更新。\n- **存储编排**：自动挂载持久化存储。\n- **资源监控与日志管理**：集成监控、日志和调试工具。\n\n---\n\n## 3. **Docker 和 Kubernetes 的关系**\n\n### ✅ **Docker 是 Kubernetes 的基础**\n- Kubernetes 本身并不直接运行容器，而是通过**容器运行时(如 Docker)**来运行容器。\n- 在 Kubernetes 中，**Docker 是一个常用的容器运行时**，但不是唯一的选择(其他如 containerd、CRI-O 也可以)。\n\n### ✅ **Kubernetes 是 Docker 的“增强”**\n- Docker 主要用于**单机或小规模部署**，而 Kubernetes 是为了**大规模、分布式、自动化管理容器应用**而设计的。\n- Docker 可以帮助你构建镜像并运行容器，而 Kubernetes 可以帮你**管理成千上万个容器**，并确保它们高效、稳定地运行。\n\n### ✅ **协同工作流程示例：**\n1. 使用 Docker 构建一个应用的镜像(通过 `Dockerfile`)。\n2. 将镜像推送到 Docker Registry(如 Docker Hub 或私有仓库)。\n3. 在 Kubernetes 中定义一个 Deployment 或 Pod，使用该镜像。\n4. Kubernetes 会自动拉取镜像、调度容器到合适的节点上运行，并管理它们的生命周期。\n\n---\n\n## 4. **总结：Docker 与 Kubernetes 的关系**\n\n| 项目        | 角色                         | 功能                              |\n|-------------|------------------------------|-----------------------------------|\n| **Docker**  | 容器化平台                   | 打包、运行容器                    |\n| **Kubernetes** | 容器编排系统               | 自动部署、扩展、管理容器集群      |\n\n> **Docker 是 Kubernetes 的基石，Kubernetes 是 Docker 的扩展和增强，两者相辅相成，共同构成了现代云原生应用开发和运维的核心工具链。**\n\n---\n\n如果你需要更深入的了解，比如如何使用 Docker 和 Kubernetes 一起部署一个应用，我也可以提供示例。' additional_kwargs={} response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-15T15:00:19.072481885Z', 'done': True, 'done_reason': 'stop', 'total_duration': 38536637460, 'load_duration': 17426607, 'prompt_eval_count': 24, 'prompt_eval_duration': 7403164, 'eval_count': 755, 'eval_duration': 18318528379, 'model_name': 'qwen3:14b'} id='run--cd3ce69f-1184-46c8-a7f7-51b7e86c1b64-0' usage_metadata={'input_tokens': 24, 'output_tokens': 755, 'total_tokens': 779}
+````
+
+### 4.4 异步调用
+
+LangChain 提供 `ainvoke()` 异步调用接口，用于在 异步环境(async/await) 中高效并行地执行模型推理。
+它的核心作用是：让你同时调用多个模型请求而不阻塞主线程 —— 特别适合大批量请求或 Web 服务场景(如 FastAPI)
+
+```python title="执行异步调用" icon="python"
+import asyncio
+from langchain_ollama import ChatOllama
+
+# 设置本地模型，不使用深度思考
+model = ChatOllama(base_url="http://localhost:11434", model="qwen3:14b", reasoning=False)
+
+async def main():
+    # 异步调用一条请求
+    response = await model.ainvoke("解释一下LangChain是什么")
+    print(response)
+
+# 运行异步程序的入口点
+asyncio.run(main())
+```
+
+```console title="执行结果如下" icon="terminal"
+content='LangChain 是一个用于构建基于大型语言模型(LLM)的应用程序的框架，它旨在简化从数据准备、模型集成到最终应用开发的整个流程。LangChain 提供了一系列工具和模块，帮助开发者更高效地
+```

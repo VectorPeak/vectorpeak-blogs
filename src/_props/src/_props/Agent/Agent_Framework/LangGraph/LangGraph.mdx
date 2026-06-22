@@ -1,0 +1,154 @@
+---
+title: "LangGraph"
+icon: "diagram-project"
+description: "介绍 LangGraph 的定位、核心抽象、技术架构和适用边界"
+---
+
+## 1. LangGraph介绍
+
+<Badge icon="clock" color="green">Written: 2026.06</Badge>
+
+## 2. 为什么要推出LangGraph
+
+由于LangChain诞生时间较早(2022年末，GPT-3.5刚刚诞生)，当时开发者对大模型的想象主要是用其搭建一个又一个的工作流，而这也成为LangChain的核心目标，LangChain中的“Chain”也就是链式调用就是搭建“工作流”的意思。LangChain通过模型稳定接入、LCEL简洁语法规则、丰富强大的内置工具使得开发者能够便捷地将提示词模板、大模型及一些外部工具组合拼装，迅速成为世界最流行的智能体开发框架
+
+但随着大模型基座能力的飞速进化，目前最新一代大模型包括DeepSeek-V3.1，Qwen3等不仅拥有非常强悍的外部工具识别和调用能力，还原生就支持多工具并联和串联调用，而开发者对于大模型应用开发的需求也在快速变化，LangChain单纯构建线性工作流的模式可拓展性不强。因此LangChain在之后的更新中设计了一整套能实时根据用户需求灵活创建Chain的Agent API，开发者仅需将提示词、大模型和工具放在一起，LangChain Agent API就能自动根据用户需求创建一些链来完成工作，大幅加快了开发效率
+
+不过伴随着Agent开发技术的飞速发展，LangChain很快意识到要真正满足新一代多智能体开发需求，仅靠Agent API是完全不够的，因此在23年下半年，LangChain创立了以“图结构”为智能体构建哲学的框架，这就是大名鼎鼎的LangGraph，目前最火热的Agent开发框架！
+
+## 3. LangGraph与LangChain对比
+
+LangGraph和LangChain同宗同源，底层架构完全相同、接口完全相通。从开发者角度来说，LangGraph也是使用LangChain底层API来接入各类大模型、LangGraph也完全兼容LangChain内置的一系列工具。换而言之，LangGraph的核心功能都是依托LangChain来完成。但是和LangChain的链式工作流哲学完全不同的是，LangGraph的基础哲学是构建图结构的工作流，并引入“状态”这一核心概念来描绘任务执行情况，从而拓展了LangChain LCEL链式语法的功能灵活程度
+
+<Frame caption="LangGraph 相关工具示意图">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1757837114780-74a06711-4ae1-4535-af93-94bb9fb30bac.png" alt="LangGraph 相关工具示意图" />
+</Frame>
+
+不过要注意的是，LangGraph是基于LangChain构建的，无论图结构多复杂，单独每个任务执行链路仍然是线性的，其背后仍然是靠着LangChain的Chain来实现的。因此我们可以这么来描述LangChain和LangGraph之间的关系，LangGraph是LangChain工作流的高级编排工具，其中“高级”之处就是LangGraph能按照图结构来编排工作流
+
+## 4. LangGraph的技术架构
+
+就好比LangChain中既有LCEL语法、同时也有Agent API一样，LangGraph也提供了基于图结构基础语法的高层API
+
+LangGraph的高层API主要分为两层，其一是Agent API，用于将大模型、提示词模板、外部工具等关键元素快速封装为图中的一些节点，而更高一层的封装，则是进一步创建一些预构建的Agent、也就是预构建好的图
+
+完整的LangGraph三层API架构图如下所示：
+
+<Frame caption="LangGraph 相关工具示意图">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1758339031180-2b861629-69b5-4278-9771-82843836ccfe.png" alt="LangGraph 相关工具示意图" />
+</Frame>
+
+依托LangChain完善的生态、拥有丰富稳定的API架构、以及便捷上手等特性，使得LangGraph成为目前超越LangChain的新一代Agent开发框架
+
+## 5. LangGraph开发工具套件
+
+在对LangGraph有了一定的基础了解之后，对于开发者来说，还需要进一步了解和掌握LangGraph必备的开发者套件。分别是LangGraph运行监控框架LangSmith、LangGraph图结构可视化与调试框架LangGraph Studio和LangGraph服务部署工具LangGraph Cli。可以说这些开发工具套件，是真正推动LangGraph的企业级应用开发效率大幅提升的关键。同时监控、调试和部署工具，也是全新一代企业级Agent开发框架的必备工具，也是开发者必须要掌握的基础工具
+
+### 5.1 运行监控框架：LangSmith
+
+LangSmith官网地址：[https://docs.smith.langchain.com/](https://docs.smith.langchain.com/)
+
+LangSmith 是一款用于构建、调试、可视化和评估 LLM 工作流的全生命周期开发平台。它聚焦的不是模型训练，而是我们在构建 AI 应用(尤其是多工具 Agent、LangChain/Graph)时的「可视化调试」、「性能评估」与「运维监控」
+
+<Frame caption="LangGraph 相关工具示意图">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1757837115328-a0a3dbf9-6f66-4c45-bdb9-4ab2c0660120.png" alt="LangGraph 相关工具示意图" />
+</Frame>
+
+| 功能类别                            | 描述                                   | 场景                   |
+| ------------------------------- | ------------------------------------ | -------------------- |
+| **调试追踪(Trace Debugging)**       | 可视化展示每个 LLM 调用、工具调用、Prompt、输入输出      | Agent 调试、Graph 调用链分析 |
+| **评估(Evaluation)**              | 支持自动评估多个输入样本的回答质量，可自定义评分维度           | 批量测试 LLM 表现、A/B 对比   |
+| **会话记录(Sessions / Runs)**       | 每次 chain 或 agent 的运行都会被记录为一个 Run，可溯源 | Agent 问题诊断、用户问题分析    |
+| **Prompt 管理器(Prompt Registry)** | 保存、版本控制、调用历史 prompt                  | 多版本 prompt 迭代测试      |
+| **流量监控(Telemetry)**             | 实时查看运行次数、错误率、响应时间等                   | 在生产环境中监控 Agent 质量    |
+| **Dataset 管理**                  | 管理自定义测试集样本，支持自动化评估                   | 微调前评估、数据对比实验         |
+| **LangGraph 可视化**               | 对 LangGraph 中每个节点运行情况进行实时可视化展示       | Graph 执行追踪           |
+
+### 5.2 图结构可视化与调试框架：LangGraph Studio
+
+LangGraph Studio官网地址：[https://www.langgraph.dev/studio](https://www.langgraph.dev/studio)
+
+LangGraph Studio 是一个用于可视化构建、测试、分享和部署智能体流程图的图形化 IDE + 运行平台
+
+<Frame caption="LangGraph 相关工具示意图">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1757837115395-bf9968ad-af72-43ec-99fd-124529173e55.png" alt="LangGraph 相关工具示意图" />
+</Frame>
+
+| 功能模块             | 说明                                        | 应用场景             |
+| ---------------- | ----------------------------------------- | ---------------- |
+| **Graph 编辑器**    | 以拖拽方式创建节点(工具、模型、Router)并连接                | 零代码构建 LangGraph  |
+| **节点配置器**        | 每个节点可配置 LLM、工具、Router 逻辑、Memory           | 灵活定制 Agent 控制流   |
+| **即时测试**         | 输入 prompt 可在浏览器中运行整个图                     | 实时测试执行结果         |
+| **云端保存 / 分享**    | 将构建的 Graph 保存为公共 URL / 私人项目               | 团队协作，Demo 分享     |
+| **Tool 插件管理**    | 可连接自定义工具(MCP)、HTTP API、Python 工具          | 插件式扩展 Agent 功能   |
+| **Router 分支节点**  | 创建条件分支，支持 if/else 路由                      | 决策型智能体           |
+| **上传文档 / 多模态**   | 可以上传文件(如 PDF)并嵌入进图中处理流程                   | RAG 结构、OCR、图文问答等 |
+| **Prompt 输入/预览** | 编辑 prompt 并观察其运行效果                        | Prompt 工程调试      |
+| **一键部署**         | 将 Graph 部署为可被 Agent Chat UI 使用的 Assistant | 快速集成到前端          |
+
+### 5.3 服务部署工具：LangGraph Cli
+
+LangGraph Cli官网地址：[https://www.langgraph.dev/](https://www.langgraph.dev/) (需要代理环境)
+
+LangGraph CLI 是用于本地启动、调试、测试和托管 LangGraph 智能体图的开发者命令行工具
+
+<Frame caption="LangGraph 相关工具示意图">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1757837115332-16a13baf-23c9-4461-875a-c1b4b5c44136.png" alt="LangGraph 相关工具示意图" />
+</Frame>
+
+| 功能类别                | 命令示例                                                  | 说明                                      |
+| ------------------- | ----------------------------------------------------- | --------------------------------------- |
+| **启动 Graph 服务**     | `langgraph dev`                                       | 启动 Graph 的开发服务器，供前端(如 Agent Chat UI)调用  |
+| **测试 Graph 输入**     | `langgraph run graph:graph --input '{"input": "你好"}'` | 本地 CLI 输入测试，输出结果                        |
+| **管理项目结构**          | `langgraph init`                                      | 初始化一个标准 Graph 项目目录结构                    |
+| **部署 Graph(未来)**    | `langgraph deploy`(预留)                                | 发布 graph 至 LangGraph 云端(已对接 Studio)     |
+| **显示 Assistant 列表** | `langgraph list`                                      | 显示当前 graph 中有哪些 assistant(即 entrypoint) |
+| **重载运行时**           | 自动热重载                                                 | 修改 `graph.py` 时，`dev` 模式自动重启生效          |
+
+而一旦应用成功部署上线，LangGraph Cli还会非常贴心的提供后端接口说明文档：
+
+<Frame caption="LangGraph 相关工具示意图">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1757837115526-da89ee42-669a-47a5-b619-1ddcde97385f.png" alt="LangGraph 相关工具示意图" />
+</Frame>
+
+而对于LangGraph构建的智能体，除了能够本地部署外，官方也提供了云托管服务，借助LangGraph Platform，开发者可以将构建的智能体 Graph部署到云端，并允许公开访问，同时支持支持长时间运行、文件上传、外部 API 调用、Studio 集成等功能
+
+### 5.4 Agent前端可视化工具：Agent Chat UI
+
+Agent Chat UI 是 LangGraph/LangChain 官方提供的多智能体前端对话面板，用于与后端 Agent(Graph 或 Chain)进行实时互动，支持上传文件、多工具协同、结构化输出、多轮对话、调试标注等功能
+
+Agent Chat UI官网地址：[https://langchain-ai.github.io/langgraph/agents/ui/](https://langchain-ai.github.io/langgraph/agents/ui/)
+
+<Frame caption="LangGraph 相关工具示意图">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1757837115787-f72784ed-8b69-411c-80ff-77001d7333ac.png" alt="LangGraph 相关工具示意图" />
+</Frame>
+
+| 功能模块                   | 描述                            | 应用场景                       |
+| ---------------------- | ----------------------------- | -------------------------- |
+| **多轮对话框**              | 类似 ChatGPT 的输入区域，支持多轮上下文      | 用户提问，Agent 回复              |
+| **工具调用轨迹显示**           | 显示每个调用的工具、参数、结果(结构化)          | Agent 推理透明化                |
+| **上传 PDF / 图片**        | 支持上传文档、图片、嵌入多模态输入             | RAG、OCR、图像问答               |
+| **文件面板**               | 可查看上传历史文件、删除、重新引用             | 管理文档输入                     |
+| **Assistant 切换**       | 支持切换不同 Assistant(Graph entry) | 一键切换模型能力(如 math / weather) |
+| **插件支持**               | 与 MCP 工具、LangGraph 图打通        | 工具式 Agent 调用               |
+| **调试视图**               | 显示每轮 Agent 的思维过程和中间状态         | Prompt 调试、模型行为分析           |
+| **云部署支持**              | 支持接入远端 Graph API(如 dev 服务器)   | 前后端分离部署                    |
+| **与 LangSmith 对接(可选)** | 若后端启用 tracing，可同步显示运行 trace   | 调试闭环                       |
+
+### 5.5 内置工具库与MCP调用组件
+
+除了有上述非常多实用的开发工具外，LangGraph还全面兼容LangChain的内置工具集。LangChain自诞生之初就为开发者提供了非常多种类各异的、封装好的实用工具，历经几年发展时间，目前LangChain已经拥有了数以百计的内置实用工具，包括网络搜索工具、浏览器自动化工具、Python代码解释器、SQL代码解释器等。而作为LangChain同系框架，LangGraph也可以无缝调用LangChain各项开发工具，从而大幅提高开发效率
+
+LangChain工具集：[https://python.langchain.com/docs/integrations/tools/](https://python.langchain.com/docs/integrations/tools/)
+
+<Frame caption="LangGraph 相关工具示意图">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1757837115882-4f165461-2488-4caa-b305-d1cc963c899c.png" alt="LangGraph 相关工具示意图" />
+</Frame>
+
+此外，LangChain是最早支持MCP的开发框架之一，借助`langchain-mcp-adapters`，LangChain和LangGraph便可快速接入各类MCP工具
+
+<Frame caption="LangGraph 相关工具示意图">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/png/2308212/1757837116024-0e39165a-36c2-4d9d-83b6-918aef7f53f6.png" alt="LangGraph 相关工具示意图" />
+</Frame>
+
+并且LangGraph也同样支持谷歌的A2A(跨Agents通信协议)

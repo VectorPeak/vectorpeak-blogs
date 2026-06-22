@@ -1,0 +1,215 @@
+{
+  "theme": "mint",
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "VectorPeak",
+  "colors": {
+    "primary": "#16A34A",
+    "light": "#07C983",
+    "dark": "#15803D"
+  },
+  "logo": {
+    "light": "/images/logo/vector_peak_light.png",
+    "dark": "/images/logo/vector_peak_dark.webp"
+  },
+  "favicon": "/images/logo/vectorpeak_no_background.png",
+  "navbar": {
+    "links": [
+      {
+        "href": "mailto:hi@mintlify.com",
+        "label": "Support"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Dashboard",
+      "href": "https://dashboard.mintlify.com"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": [
+              "Guides/index"
+            ]
+          },
+          {
+            "group": "Reflections",
+            "pages": [
+              "Guides/reflections/thoughts",
+              "Guides/reflections/actions",
+              "Guides/reflections/observations"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Agent",
+        "groups": [
+          {
+            "group": "Agent Theory",
+            "pages": [
+              "Agent/Agent_Theory/Evaluation",
+              "Agent/Agent_Theory/memory",
+              "Agent/Agent_Theory/multi-agent"
+            ]
+          },
+          {
+            "group": "Agent Framework",
+            "pages": [
+              "Agent/Agent_Framework/Framework",
+              "Agent/Agent_Framework/Harness",
+              {
+                "group": "LangChain",
+                "icon": "link",
+                "expanded": false,
+                "pages": [
+                  "Agent/Agent_Framework/LangChain/LangChain",
+                  "Agent/Agent_Framework/LangChain/Model Provider",
+                  "Agent/Agent_Framework/LangChain/Prompt Template",
+                  "Agent/Agent_Framework/LangChain/Parser",
+                  "Agent/Agent_Framework/LangChain/LCEL",
+                  "Agent/Agent_Framework/LangChain/Memory",
+                  "Agent/Agent_Framework/LangChain/Tool",
+                  "Agent/Agent_Framework/LangChain/Agent",
+                  "Agent/Agent_Framework/LangChain/MCP",
+                  "Agent/Agent_Framework/LangChain/RAG",
+                  "Agent/Agent_Framework/LangChain/LangSmith",
+                  "Agent/Agent_Framework/LangChain/LangServe"
+                ]
+              },
+              {
+                "group": "LangGraph",
+                "icon": "diagram-project",
+                "expanded": false,
+                "pages": [
+                  "Agent/Agent_Framework/LangGraph/LangGraph",
+                  "Agent/Agent_Framework/LangGraph/Agent & Tool",
+                  "Agent/Agent_Framework/LangGraph/LangGraph Ecosystem",
+                  "Agent/Agent_Framework/LangGraph/Low-Level API",
+                  "Agent/Agent_Framework/LangGraph/Memory Management",
+                  "Agent/Agent_Framework/LangGraph/LangGraph with MCP",
+                  "Agent/Agent_Framework/LangGraph/Multi-Agent Architectures"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Modern Agent",
+            "pages": [
+              "Agent/Modern_Agent/openclaw",
+              "Agent/Modern_Agent/hermes",
+              "Agent/Modern_Agent/claude-code"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "RAG",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "RAG/index"
+            ]
+          },
+          {
+            "group": "Foundations",
+            "pages": [
+              "RAG/foundations/project-overview",
+              "RAG/foundations/rag-fundamentals",
+              "RAG/foundations/langchain-ecosystem"
+            ]
+          },
+          {
+            "group": "Retrieval Engineering",
+            "pages": [
+              "RAG/retrieval/chunking-strategy",
+              "RAG/retrieval/embedding-and-bge-m3",
+              "RAG/retrieval/milvus-index-and-operations",
+              "RAG/retrieval/retrieval-strategy",
+              "RAG/retrieval/query-rewrite-variants",
+              "RAG/retrieval/milvus-hybrid-search",
+              "RAG/retrieval/cross-encoder-reranker"
+            ]
+          },
+          {
+            "group": "Pipeline & Orchestration",
+            "pages": [
+              "RAG/pipeline/intent-classification",
+              "RAG/pipeline/qaservice-orchestration",
+              "RAG/pipeline/rag-pipeline",
+              "RAG/pipeline/prompt-engineering",
+              "RAG/pipeline/fastapi-asynchronous-service",
+              "RAG/pipeline/app-entry-preflight"
+            ]
+          },
+          {
+            "group": "Production RAG",
+            "pages": [
+              "RAG/production/kb-versioning",
+              "RAG/production/data-isolation",
+              "RAG/production/ingestion-pipeline",
+              "RAG/production/quality-evaluation",
+              "RAG/production/testing-system",
+              "RAG/production/observability-tracing"
+            ]
+          },
+          {
+            "group": "Advanced Topics",
+            "pages": [
+              "RAG/advanced/rag-optimization",
+              "RAG/advanced/rag-evaluation",
+              "RAG/advanced/graph-rag",
+              "RAG/advanced/agentic-rag"
+            ]
+          },
+          {
+            "group": "Technical Appendix",
+            "pages": [
+              "RAG/appendix/pydantic",
+              "RAG/appendix/sha256-fingerprint",
+              "RAG/appendix/hnsw-index",
+              "RAG/appendix/recursive-splitter",
+              "RAG/appendix/embedding-models",
+              "RAG/appendix/chunking-strategy-appendix",
+              "RAG/appendix/tool-foundations"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/VectorPeak"
+    },
+    "links": [
+      {
+        "header": "备案",
+        "items": [
+          {
+            "label": "宁ICP备2026000657号",
+            "href": "https://beian.miit.gov.cn/"
+          }
+        ]
+      }
+    ]
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ],
+    "display": "header"
+  }
+}

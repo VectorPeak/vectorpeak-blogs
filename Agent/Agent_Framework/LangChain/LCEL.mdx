@@ -4,11 +4,11 @@ icon: "route"
 description: "介绍 LCEL 链式调用的核心思想、Runnable 组合方式和适用边界"
 ---
 ## 1. LCEL链式调用
+<Badge icon="clock" color="green">Written: 2026.06</Badge>
 ## 2. 链式调用
 
 ### 2.1 什么是链式调用
 
-<Badge icon="clock" color="green">Written: 2026.06</Badge> 顾名思义，`LangChain`其核心概念就是`Chain`。 `Chain`翻译成中文就是“链”。用于将多个组件(提示模板、model模型、记忆、工具等)连接起来，形成可复用的工作流，完成复杂的任务。比如我们刚刚实现的问答流程： 用户输入一个问题 --> 发送给大模型 --> 大模型进行推理 --> 将推理结果返回给用户。这个流程就是一个链
 
 Chain 的核心思想是通过组合不同的模块化单元，实现比单一组件更强大的功能。比如：
 

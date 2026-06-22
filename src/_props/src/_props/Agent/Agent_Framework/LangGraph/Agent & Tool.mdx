@@ -1,0 +1,443 @@
+---
+title: "Agent & Tool"
+icon: "robot"
+description: "介绍 LangGraph 中预构建 ReAct Agent、工具绑定、流式输出和工具调用模式"
+---
+
+## 1. 构建智能体与工具调用
+
+<Badge icon="clock" color="green">Written: 2026.06</Badge>
+
+## 2. LangGraph环境搭建
+
+### 2.1 安装 LangGraph
+
+```bash title="安装 LangGraph" icon="terminal" wrap
+pip install langgraph
+```
+
+### 2.2 接入大模型
+
+LangGraph底层依赖LangChain，接入大模型与 LangChain 完全一致，具体可参考文档[https://www.cuiliangblog.cn/detail/section/228757095](https://www.cuiliangblog.cn/detail/section/228757095)
+
+## 3. 创建LangGraph智能体
+
+### 3.1 预构建智能体API简介
+
+LangGraph 提供了四组“预构建图”级别的 Agent API，用户无需自己拼节点、连边，只要给模型和工具即可一键拿到一个可运行、可观测、带记忆的图
+
+| API                             | 底层机制                 | 场景适合度          | 特点     |
+| ------------------------------- | -------------------- | -------------- | ------ |
+| `create_react_agent`            | ReAct 推理 + 工具调用      | 多步推理、需要 trace  | 灵活但复杂  |
+| `create_tool_calling_agent`     | LLM 原生 tool\_call    | 单步/轻量多步调用      | 简洁     |
+| `create_openai_functions_agent` | OpenAI Functions API | 兼容旧接口          | 不推荐新项目 |
+| `create_openai_tools_agent`     | OpenAI Tools API     | OpenAI 新模型工具调用 | 推荐     |
+
+其中 React Agent(Reason + Act)是使用最多的一种经典的推理–执行型智能体模式：先思考(Reason)，再选择动作(Act)
+
+### 3.2 接入自定义工具函数
+
+LangGraph接入工具函数类别和LangChain一样有三类：LangChain内置的工具函数、自定义工具函数和使用MCP工具。我们这里通过自定义工具函数进行演示
+
+1. 创建自定义获取天气信息的工具函数，为了更加严谨，我们使用`pydantic`库定义一个对象类型描述传入参数，这里表示要传入的是一个字符串 city 参数，表示的含义是城市名称。定义的`WeatherQuery`对象在`@tool(args_schema=WeatherQuery)`中约束`get_weather`的函数参数。`tool`装饰器可以将自定义函数修饰为LangChain/LangGraph的函数工具， 注意函数的注释必须要撰写清楚才能使大模型理解函数功能
+
+```python title="自定义工具函数(tools.py)示例" icon="python" wrap expandable
+import json
+import os
+import httpx
+import dotenv
+from loguru import logger
+from pydantic import Field, BaseModel
+from langchain_core.tools import tool
+
+# 加载环境变量配置
+dotenv.load_dotenv()
+
+class WeatherQuery(BaseModel):
+    """
+    天气查询参数模型类，用于定义天气查询工具的输入参数结构。
+
+    :param city: 城市名称，字符串类型，表示要查询天气的城市
+    """
+    city: str = Field(description="城市名称")
+
+@tool(args_schema=WeatherQuery)
+def get_weather(city):
+    """
+    查询指定城市的即时天气信息。
+
+    :param city: 必要参数，字符串类型，表示要查询天气的城市名称。
+                 注意：中国城市需使用其英文名称，如 "Beijing" 表示北京。
+    :return: 返回 OpenWeather API 的响应结果，URL 为
+             https://api.openweathermap.org/data/2.5/weather。
+             响应内容为 JSON 格式的字符串，包含详细的天气数据。
+    """
+    # 构建请求 URL
+    url = "https://api.openweathermap.org/data/2.5/weather"
+
+    # 设置查询参数
+    params = {
+        "q": city, # 城市名称
+        "appid": os.getenv("OPENWEATHER_API_KEY"),  # 从环境变量中读取 API Key
+        "units": "metric",  # 使用摄氏度作为温度单位
+        "lang": "zh_cn"     # 返回简体中文的天气描述
+    }
+
+    # 发送 GET 请求并获取响应
+    response = httpx.get(url, params=params)
+
+    # 将响应解析为 JSON 并序列化为字符串返回
+    data = response.json()
+    logger.info(f"查询天气结果：{json.dumps(data)}")
+    return json.dumps(data)
+
+print(get_weather.name)
+print(get_weather.description)
+print(get_weather.args)
+```
+
+```console title="执行结果如下" icon="terminal" wrap expandable
+get_weather
+查询指定城市的即时天气信息。
+
+:param city: 必要参数，字符串类型，表示要查询天气的城市名称。
+             注意：中国城市需使用其英文名称，如 "Beijing" 表示北京。
+:return: 返回 OpenWeather API 的响应结果，URL 为
+         https://api.openweathermap.org/data/2.5/weather。
+         响应内容为 JSON 格式的字符串，包含详细的天气数据。
+{'city': {'description': '城市名称', 'title': 'City', 'type': 'string'}}
+```
+
+2. 创建 LangGraph 智能体。初始化大模型和函数列表并创建ReACT预制图结构并构建智能体
+
+```python title="创建 ReAct 智能体示例" icon="python" wrap
+from langchain_ollama import ChatOllama
+from langgraph.prebuilt import create_react_agent
+from tools import get_weather
+
+# 初始化本地大语言模型，配置基础URL、模型名称和推理模式
+llm = ChatOllama(base_url="http://localhost:11434", model="qwen3:14b", reasoning=False)
+
+# 定义工具列表，包含天气查询工具
+tools = [get_weather]
+
+# 创建ReAct代理，结合语言模型和工具函数
+agent = create_react_agent(model=llm, tools=tools)
+
+# 调用代理处理用户查询，获取北京天气信息
+response = agent.invoke({"messages": [{"role": "user", "content": "请问北京今天天气如何？"}]})
+# 输出完整响应结果和最终回答内容
+print(response)
+print(response["messages"][-1].content)
+response["messages"][-1].pretty_print()
+# 使用stream方法进行流式调用
+for chunk in agent.stream(
+        {"messages": [{"role": "user", "content": "请问北京今天天气如何？"}]},
+        stream_mode="values",
+):
+    chunk["messages"][-1].pretty_print()
+# 这里stream_mode有四种选项：
+# - messages：流式输出大语言模型回复的token
+# - updates : 流式输出每个工具调用的每个步骤。
+# - values : 一次输出到所有的chunk。默认值。
+# - custom : 自定义输出。主要是可以在工具内部使用get_stream_writer获取输入流，添加自定义的内容。
+```
+
+```console title="执行结果如下" icon="terminal" wrap expandable
+2025-10-02 16:35:09.690 | INFO     | tools:get_weather:61 - 查询天气结果：{"coord": {"lon": 116.3972, "lat": 39.9075}, "weather": [{"id": 800, "main": "Clear", "description": "\u6674", "icon": "01d"}], "base": "stations", "main": {"temp": 25.78, "feels_like": 25.3, "temp_min": 25.78, "temp_max": 25.78, "pressure": 1014, "humidity": 34, "sea_level": 1014, "grnd_level": 1009}, "visibility": 10000, "wind": {"speed": 4.66, "deg": 207, "gust": 2.91}, "clouds": {"all": 1}, "dt": 1759393385, "sys": {"country": "CN", "sunrise": 1759356671, "sunset": 1759398979}, "timezone": 28800, "id": 1816670, "name": "Beijing", "cod": 200}
+{'messages': [HumanMessage(content='请问北京今天天气如何？', additional_kwargs={}, response_metadata={}, id='576bba50-971f-4792-bf0d-554c807bb84f'), AIMessage(content='', additional_kwargs={}, response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-02T08:35:09.337666398Z', 'done': True, 'done_reason': 'stop', 'total_duration': 533471856, 'load_duration': 27858226, 'prompt_eval_count': 243, 'prompt_eval_duration': 6905785, 'eval_count': 21, 'eval_duration': 497171713, 'model_name': 'qwen3:14b'}, id='run--e5adf95f-de01-4bb4-9ea0-476bfc17d1e2-0', tool_calls=[{'name': 'get_weather', 'args': {'city': 'Beijing'}, 'id': '95d9334e-39ed-485c-9e51-a2b956a5db56', 'type': 'tool_call'}], usage_metadata={'input_tokens': 243, 'output_tokens': 21, 'total_tokens': 264}), ToolMessage(content='{"coord": {"lon": 116.3972, "lat": 39.9075}, "weather": [{"id": 800, "main": "Clear", "description": "\\u6674", "icon": "01d"}], "base": "stations", "main": {"temp": 25.78, "feels_like": 25.3, "temp_min": 25.78, "temp_max": 25.78, "pressure": 1014, "humidity": 34, "sea_level": 1014, "grnd_level": 1009}, "visibility": 10000, "wind": {"speed": 4.66, "deg": 207, "gust": 2.91}, "clouds": {"all": 1}, "dt": 1759393385, "sys": {"country": "CN", "sunrise": 1759356671, "sunset": 1759398979}, "timezone": 28800, "id": 1816670, "name": "Beijing", "cod": 200}', name='get_weather', id='fae9674c-3a04-4cdd-817e-540c788b0d1b', tool_call_id='95d9334e-39ed-485c-9e51-a2b956a5db56'), AIMessage(content='北京今天的天气非常晴朗。当前温度为25.78摄氏度，体感温度约为25.3摄氏度，湿度为34%。风速为4.66米/秒，风向为207度。天气状况良好，适合外出活动。', additional_kwargs={}, response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-02T08:35:11.426562306Z', 'done': True, 'done_reason': 'stop', 'total_duration': 1731056764, 'load_duration': 14531077, 'prompt_eval_count': 571, 'prompt_eval_duration': 9450204, 'eval_count': 65, 'eval_duration': 1700059621, 'model_name': 'qwen3:14b'}, id='run--3ecd33ef-2944-453b-965a-4f7cfd48fac9-0', usage_metadata={'input_tokens': 571, 'output_tokens': 65, 'total_tokens': 636})]}
+北京今天的天气非常晴朗。当前温度为25.78摄氏度，体感温度约为25.3摄氏度，湿度为34%。风速为4.66米/秒，风向为207度。天气状况良好，适合外出活动。
+================================== Ai Message ==================================
+
+北京今天的天气非常晴朗。当前温度为25.78摄氏度，体感温度约为25.3摄氏度，湿度为34%。风速为4.66米/秒，风向为207度。天气状况良好，适合外出活动。
+================================ Human Message =================================
+
+请问北京今天天气如何？
+================================== Ai Message ==================================
+Tool Calls:
+  get_weather (295045ea-37a4-4356-808d-1195406ee933)
+ Call ID: 295045ea-37a4-4356-808d-1195406ee933
+  Args:
+    city: Beijing
+2025-10-02 16:35:12.401 | INFO     | tools:get_weather:61 - 查询天气结果：{"coord": {"lon": 116.3972, "lat": 39.9075}, "weather": [{"id": 800, "main": "Clear", "description": "\u6674", "icon": "01d"}], "base": "stations", "main": {"temp": 25.78, "feels_like": 25.3, "temp_min": 25.78, "temp_max": 25.78, "pressure": 1014, "humidity": 34, "sea_level": 1014, "grnd_level": 1009}, "visibility": 10000, "wind": {"speed": 4.66, "deg": 207, "gust": 2.91}, "clouds": {"all": 1}, "dt": 1759393385, "sys": {"country": "CN", "sunrise": 1759356671, "sunset": 1759398979}, "timezone": 28800, "id": 1816670, "name": "Beijing", "cod": 200}
+================================= Tool Message =================================
+Name: get_weather
+
+{"coord": {"lon": 116.3972, "lat": 39.9075}, "weather": [{"id": 800, "main": "Clear", "description": "\u6674", "icon": "01d"}], "base": "stations", "main": {"temp": 25.78, "feels_like": 25.3, "temp_min": 25.78, "temp_max": 25.78, "pressure": 1014, "humidity": 34, "sea_level": 1014, "grnd_level": 1009}, "visibility": 10000, "wind": {"speed": 4.66, "deg": 207, "gust": 2.91}, "clouds": {"all": 1}, "dt": 1759393385, "sys": {"country": "CN", "sunrise": 1759356671, "sunset": 1759398979}, "timezone": 28800, "id": 1816670, "name": "Beijing", "cod": 200}
+================================== Ai Message ==================================
+
+北京今天的天气晴朗，气温为25.78°C，体感温度约为25.3°C，湿度为34%，风速为4.66米/秒，风向为207度。天气非常宜人，适合外出活动。
+```
+
+观察智能体输出的消息列表，就是Function Calling的基本流程，大模型根据用户的提问从工具函数列表中选取适当的函数并自动生成函数参数，调用函数生成的结果再反馈给大模型生成最终的回复结果
+
+### 3.3 LangGraph ReACT图结构浅析
+
+LangGraph框架是通过Nodes(点)和Edges(边)的组合去创建复杂的循环工作流程，通过消息传递的方式串联所有节点形成一个通路。为了维持消息能够及时的更新并能够在节点中反复传递，则LangGraph构建了 State状态 的概念。每启动一个LangGraph构建流都会生成一个状态，图中的节点在处理时会传递和修改该状态。整个状态不仅仅是一组静态数据，更是根据每个节点的输出动态更新的，然后影响循环内的后续操作
+
+<Frame caption="LangGraph 状态流转示意图">
+  <img src="https://api.cuiliangblog.cn/v1/public/imgProxy/?url=https://cdn.nlark.com/yuque/0/2025/jpeg/2308212/1757990081585-09098a21-7c10-40ba-8c10-658a56d925be.jpeg" alt="LangGraph 状态流转示意图" />
+</Frame>
+
+上图展示了ReACT图结构，ReACT是Reason(推理)和Act(行动)的缩写，它的工作流程是一个循环图：思考->行动->观察结果->再思考…->得出答案。正如上图所示，ReACT图具体流程如下:
+
+<Steps>
+  <Step title="开始">
+    接收用户的输入
+  </Step>
+
+  <Step title="调用模型">
+    将当前状态传递给大模型，要求模型思考
+  </Step>
+
+  <Step title="模型决策">
+    大模型会以特定格式返回一个响应，这个响应可能是：
+
+    * 最终答案：如果模型认为信息足够，就直接回答用户
+    * 工具调用：如果模型认为需要更多信息，它会决定调用哪个工具
+  </Step>
+
+  <Step title="执行工具">
+    如果模型决定调用工具，图就会执行该工具，并获取工具返回的结果
+  </Step>
+
+  <Step title="更新状态">
+    将工具的执行结果添加到状态中
+  </Step>
+
+  <Step title="循环">
+    带着新的信息回到第2步，让模型再次思考
+  </Step>
+
+  <Step title="结束">
+    当模型返回最终答案时，循环结束，图运行完成将结果返回给用户
+  </Step>
+</Steps>
+
+## 4. ReAct Agent 外部工具调用形式
+
+### 4.1 添加多个工具函数
+
+添加`get_weather`和`write_file`两个工具函数，分别用来查询天气和保存内容至文件。完整的项目代码如下:
+
+```python title="多个工具函数示例" icon="python" wrap expandable
+import json
+import os
+import httpx
+import dotenv
+from loguru import logger
+from pydantic import Field, BaseModel
+from langchain_core.tools import tool
+
+# 加载环境变量配置
+dotenv.load_dotenv()
+
+class WeatherQuery(BaseModel):
+    """
+    天气查询参数模型类，用于定义天气查询工具的输入参数结构。
+
+    :param city: 城市名称，字符串类型，表示要查询天气的城市
+    """
+    city: str = Field(description="城市名称")
+
+class WriteQuery(BaseModel):
+    """
+    写入查询模型类
+
+    用于定义需要写入文档的内容结构，继承自BaseModel基类
+
+    属性:
+        content (str): 需要写入文档的具体内容，包含详细的描述信息
+    """
+    content: str = Field(description="需要写入文档的具体内容")
+
+@tool(args_schema=WeatherQuery)
+def get_weather(city):
+    """
+    查询指定城市的即时天气信息。
+
+    :param city: 必要参数，字符串类型，表示要查询天气的城市名称。
+                 注意：中国城市需使用其英文名称，如 "Beijing" 表示北京。
+    :return: 返回 OpenWeather API 的响应结果，URL 为
+             https://api.openweathermap.org/data/2.5/weather。
+             响应内容为 JSON 格式的字符串，包含详细的天气数据。
+    """
+    # 构建请求 URL
+    url = "https://api.openweathermap.org/data/2.5/weather"
+
+    # 设置查询参数
+    params = {
+        "q": city,  # 城市名称
+        "appid": os.getenv("OPENWEATHER_API_KEY"),  # 从环境变量中读取 API Key
+        "units": "metric",  # 使用摄氏度作为温度单位
+        "lang": "zh_cn"  # 返回简体中文的天气描述
+    }
+
+    # 发送 GET 请求并获取响应
+    response = httpx.get(url, params=params)
+
+    # 将响应解析为 JSON 并序列化为字符串返回
+    data = response.json()
+    logger.info(f"查询天气结果：{json.dumps(data)}")
+    return json.dumps(data)
+
+@tool(args_schema=WriteQuery)
+def write_file(content):
+    """
+    将指定内容写入本地文件
+
+    参数:
+        content (str): 要写入文件的文本内容
+
+    返回值:
+        str: 表示写入操作成功完成的提示信息
+    """
+    # 将内容写入res.txt文件，使用utf-8编码确保中文字符正确保存
+    with open('res.txt', 'w', encoding='utf-8') as f:
+        f.write(content)
+        logger.info(f"已成功写入本地文件，写入内容：{content}")
+        return "已成功写入本地文件。"
+```
+
+### 4.2 工具并联调用
+
+测试ReAct图智能体的工具并联调用，同时查询北京和杭州的天气
+
+```python title="工具并联调用示例" icon="python" wrap
+from langchain_ollama import ChatOllama
+from tools import get_weather, write_file
+from langgraph.prebuilt import create_react_agent
+
+# 初始化本地大语言模型，配置基础URL、模型名称和推理模式
+llm = ChatOllama(model="qwen3:14b", reasoning=False)
+
+# 定义工具列表，包含天气查询和结果写入工具
+tools = [get_weather, write_file]
+
+# 创建ReAct代理，结合语言模型和工具函数
+agent = create_react_agent(model=llm, tools=tools)
+
+# 调用代理处理用户查询，获取北京天气信息
+response = agent.invoke({"messages": [{"role": "user", "content": "请问北京和上海今天谁更热？"}]})
+
+# 输出完整响应结果和最终回答内容
+print(response)
+response["messages"][-1].pretty_print()
+```
+
+```console title="执行结果如下" icon="terminal" wrap expandable
+2025-10-02 16:20:38.102 | INFO     | tools:get_weather:61 - 查询天气结果：{"coord": {"lon": 121.4581, "lat": 31.2222}, "weather": [{"id": 803, "main": "Clouds", "description": "\u591a\u4e91", "icon": "04d"}], "base": "stations", "main": {"temp": 31.62, "feels_like": 38.62, "temp_min": 31.62, "temp_max": 31.62, "pressure": 1010, "humidity": 68, "sea_level": 1010, "grnd_level": 1010}, "visibility": 10000, "wind": {"speed": 4.73, "deg": 157, "gust": 6.01}, "clouds": {"all": 72}, "dt": 1759393061, "sys": {"country": "CN", "sunrise": 1759355289, "sunset": 1759397933}, "timezone": 28800, "id": 1796236, "name": "Shanghai", "cod": 200}
+2025-10-02 16:20:38.102 | INFO     | tools:get_weather:61 - 查询天气结果：{"coord": {"lon": 116.3972, "lat": 39.9075}, "weather": [{"id": 800, "main": "Clear", "description": "\u6674", "icon": "01d"}], "base": "stations", "main": {"temp": 25.7, "feels_like": 25.24, "temp_min": 25.7, "temp_max": 25.7, "pressure": 1014, "humidity": 35, "sea_level": 1014, "grnd_level": 1009}, "visibility": 10000, "wind": {"speed": 4.66, "deg": 207, "gust": 2.91}, "clouds": {"all": 1}, "dt": 1759392716, "sys": {"country": "CN", "sunrise": 1759356671, "sunset": 1759398979}, "timezone": 28800, "id": 1816670, "name": "Beijing", "cod": 200}
+{'messages': [HumanMessage(content='请问北京和上海今天谁更热？', additional_kwargs={}, response_metadata={}, id='14dad07e-577e-48eb-b32a-f86823856f76'), AIMessage(content='', additional_kwargs={}, response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-02T08:20:37.482164914Z', 'done': True, 'done_reason': 'stop', 'total_duration': 1035180016, 'load_duration': 16140566, 'prompt_eval_count': 339, 'prompt_eval_duration': 7222608, 'eval_count': 42, 'eval_duration': 1010759522, 'model_name': 'qwen3:14b'}, id='run--c5efcda4-6a8c-46a1-ac58-5e02cbeb30fc-0', tool_calls=[{'name': 'get_weather', 'args': {'city': 'Beijing'}, 'id': '0c86baa7-4626-4de3-a2a5-bc3d71675fb5', 'type': 'tool_call'}, {'name': 'get_weather', 'args': {'city': 'Shanghai'}, 'id': 'a721b45f-d97e-4360-b4ba-d90b9da1f043', 'type': 'tool_call'}], usage_metadata={'input_tokens': 339, 'output_tokens': 42, 'total_tokens': 381}), ToolMessage(content='{"coord": {"lon": 116.3972, "lat": 39.9075}, "weather": [{"id": 800, "main": "Clear", "description": "\\u6674", "icon": "01d"}], "base": "stations", "main": {"temp": 25.7, "feels_like": 25.24, "temp_min": 25.7, "temp_max": 25.7, "pressure": 1014, "humidity": 35, "sea_level": 1014, "grnd_level": 1009}, "visibility": 10000, "wind": {"speed": 4.66, "deg": 207, "gust": 2.91}, "clouds": {"all": 1}, "dt": 1759392716, "sys": {"country": "CN", "sunrise": 1759356671, "sunset": 1759398979}, "timezone": 28800, "id": 1816670, "name": "Beijing", "cod": 200}', name='get_weather', id='54c76910-cc16-4010-951e-0c81cee9bd6a', tool_call_id='0c86baa7-4626-4de3-a2a5-bc3d71675fb5'), ToolMessage(content='{"coord": {"lon": 121.4581, "lat": 31.2222}, "weather": [{"id": 803, "main": "Clouds", "description": "\\u591a\\u4e91", "icon": "04d"}], "base": "stations", "main": {"temp": 31.62, "feels_like": 38.62, "temp_min": 31.62, "temp_max": 31.62, "pressure": 1010, "humidity": 68, "sea_level": 1010, "grnd_level": 1010}, "visibility": 10000, "wind": {"speed": 4.73, "deg": 157, "gust": 6.01}, "clouds": {"all": 72}, "dt": 1759393061, "sys": {"country": "CN", "sunrise": 1759355289, "sunset": 1759397933}, "timezone": 28800, "id": 1796236, "name": "Shanghai", "cod": 200}', name='get_weather', id='baeaae01-9433-4f0e-8f40-e42051770560', tool_call_id='a721b45f-d97e-4360-b4ba-d90b9da1f043'), AIMessage(content='根据今天的天气数据，上海的气温为31.62°C，而北京的气温为25.7°C。因此，上海比北京更热。', additional_kwargs={}, response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-02T08:20:39.362462251Z', 'done': True, 'done_reason': 'stop', 'total_duration': 1255462706, 'load_duration': 15536953, 'prompt_eval_count': 993, 'prompt_eval_duration': 300122251, 'eval_count': 36, 'eval_duration': 929170859, 'model_name': 'qwen3:14b'}, id='run--1b5fe80b-4f40-4ea1-82ba-45039883d312-0', usage_metadata={'input_tokens': 993, 'output_tokens': 36, 'total_tokens': 1029})]}
+================================== Ai Message ==================================
+
+根据今天的天气数据，上海的气温为31.62°C，而北京的气温为25.7°C。因此，上海比北京更热。
+```
+
+从执行结果看，ReAct图智能体同时调用了`get_weather`工具函数分别查询北京和杭州的天气状况
+
+### 4.3 工具串联调用
+
+同时查询北京和上海天气，并将结果保存到文件中
+
+```python title="工具串联调用示例" icon="python" wrap
+from langchain_ollama import ChatOllama
+from tools import get_weather, write_file
+from langgraph.prebuilt import create_react_agent
+
+# 初始化本地大语言模型，配置基础URL、模型名称和推理模式
+llm = ChatOllama( model="qwen3:14b", reasoning=False)
+
+# 定义工具列表，包含天气查询和结果写入工具
+tools = [get_weather, write_file]
+
+# 创建ReAct代理，结合语言模型和工具函数
+agent = create_react_agent(model=llm, tools=tools)
+
+# 调用代理处理用户查询，获取北京天气信息
+response = agent.invoke({"messages": [{"role": "user", "content": "请问北京天气怎么样？然后把回答结果写入文件。"}]})
+# 输出完整响应结果和最终回答内容
+print(response)
+response["messages"][-1].pretty_print()
+```
+
+```console title="执行结果如下" icon="terminal" wrap expandable
+2025-10-02 16:21:13.689 | INFO     | tools:get_weather:61 - 查询天气结果：{"coord": {"lon": 116.3972, "lat": 39.9075}, "weather": [{"id": 800, "main": "Clear", "description": "\u6674", "icon": "01d"}], "base": "stations", "main": {"temp": 25.78, "feels_like": 25.3, "temp_min": 25.78, "temp_max": 25.78, "pressure": 1014, "humidity": 34, "sea_level": 1014, "grnd_level": 1009}, "visibility": 10000, "wind": {"speed": 4.66, "deg": 207, "gust": 2.91}, "clouds": {"all": 1}, "dt": 1759393084, "sys": {"country": "CN", "sunrise": 1759356671, "sunset": 1759398979}, "timezone": 28800, "id": 1816670, "name": "Beijing", "cod": 200}
+2025-10-02 16:21:14.652 | INFO     | tools:write_file:79 - 已成功写入本地文件，写入内容：温度为25度，天气晴朗。
+{'messages': [HumanMessage(content='请问北京天气怎么样？然后把回答结果写入文件。', additional_kwargs={}, response_metadata={}, id='0d7919a3-87f7-4c35-905b-2cdabe3fbc34'), AIMessage(content='', additional_kwargs={}, response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-02T08:21:13.191902406Z', 'done': True, 'done_reason': 'stop', 'total_duration': 1419837009, 'load_duration': 29870749, 'prompt_eval_count': 343, 'prompt_eval_duration': 85937334, 'eval_count': 54, 'eval_duration': 1301789230, 'model_name': 'qwen3:14b'}, id='run--36f26bce-ac87-4f3a-ac10-3b9fbacb0278-0', tool_calls=[{'name': 'get_weather', 'args': {'city': 'Beijing'}, 'id': '166c6870-2d28-40ce-8a80-89afc6e06b6f', 'type': 'tool_call'}, {'name': 'write_file', 'args': {'content': {'temperature': 25, 'description': 'Sunny'}}, 'id': '396c363c-b953-48e1-ab47-04b8f4050075', 'type': 'tool_call'}], usage_metadata={'input_tokens': 343, 'output_tokens': 54, 'total_tokens': 397}), ToolMessage(content='{"coord": {"lon": 116.3972, "lat": 39.9075}, "weather": [{"id": 800, "main": "Clear", "description": "\\u6674", "icon": "01d"}], "base": "stations", "main": {"temp": 25.78, "feels_like": 25.3, "temp_min": 25.78, "temp_max": 25.78, "pressure": 1014, "humidity": 34, "sea_level": 1014, "grnd_level": 1009}, "visibility": 10000, "wind": {"speed": 4.66, "deg": 207, "gust": 2.91}, "clouds": {"all": 1}, "dt": 1759393084, "sys": {"country": "CN", "sunrise": 1759356671, "sunset": 1759398979}, "timezone": 28800, "id": 1816670, "name": "Beijing", "cod": 200}', name='get_weather', id='68f3f0b9-df3a-4572-8d94-395580e9e227', tool_call_id='166c6870-2d28-40ce-8a80-89afc6e06b6f'), ToolMessage(content="Error: 1 validation error for WriteQuery\ncontent\n  Input should be a valid string [type=string_type, input_value={'temperature': 25, 'description': 'Sunny'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/string_type\n Please fix your mistakes.", name='write_file', id='91704824-78f5-4aee-9213-018c1b769006', tool_call_id='396c363c-b953-48e1-ab47-04b8f4050075', status='error'), AIMessage(content='', additional_kwargs={}, response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-02T08:21:14.647599731Z', 'done': True, 'done_reason': 'stop', 'total_duration': 953879936, 'load_duration': 14908377, 'prompt_eval_count': 774, 'prompt_eval_duration': 11867791, 'eval_count': 28, 'eval_duration': 916685334, 'model_name': 'qwen3:14b'}, id='run--8fd88d7a-42a9-4975-91f2-3d1481e8a9e8-0', tool_calls=[{'name': 'write_file', 'args': {'content': '温度为25度，天气晴朗。'}, 'id': '4988d844-a59b-4028-b65a-227763d2db92', 'type': 'tool_call'}], usage_metadata={'input_tokens': 774, 'output_tokens': 28, 'total_tokens': 802}), ToolMessage(content='已成功写入本地文件。', name='write_file', id='522aa061-1f5f-4789-a22a-70df2aaff2db', tool_call_id='4988d844-a59b-4028-b65a-227763d2db92'), AIMessage(content='北京的天气目前是晴朗的，温度为25度。相关信息已成功写入本地文件。', additional_kwargs={}, response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-02T08:21:15.299740841Z', 'done': True, 'done_reason': 'stop', 'total_duration': 643064785, 'load_duration': 15672708, 'prompt_eval_count': 821, 'prompt_eval_duration': 9633645, 'eval_count': 24, 'eval_duration': 598090793, 'model_name': 'qwen3:14b'}, id='run--d83592ce-37fa-4959-8834-eb2409d27ad8-0', usage_metadata={'input_tokens': 821, 'output_tokens': 24, 'total_tokens': 845})]}
+================================== Ai Message ==================================
+
+北京的天气目前是晴朗的，温度为25度。相关信息已成功写入本地文件。
+```
+
+## 5. ReAct智能体内部工具调用
+
+### 5.1 LangChain内置工具
+
+对于LangGraph智能体来说，除了能够灵活自如自定义工具，还能够接入LangChain丰富的内置工具快速完成智能体的开发
+
+在 LangChain 框架中，工具是实现语言模型与外部世界交互的关键机制。LangChain提供了大量内置与可扩展的工具接口，使得智能体能够执行函数调用、访问 API、查询搜索引擎、调用数据库等任务，从而超越纯语言生成的能力，真正实现“能行动的智能体”。LangChain 官方文档将这些工具按照其用途进行了模块化划分，大家可参考官网[https://python.langchain.com/docs/integrations/tools/](https://python.langchain.com/docs/integrations/tools/)
+
+### 5.2 创建带搜索功能的Agent
+
+以常用免费的 google 搜索为例演示如何实现联网搜索功能
+
+登录[https://serper.dev/](https://serper.dev/)，注册账号获取 api 密钥，并添加到.env 文件中。代码如下：
+
+```python title="搜索 Agent 示例" icon="python" wrap
+import os
+import dotenv
+from langchain_ollama import ChatOllama
+from langchain_community.utilities import GoogleSerperAPIWrapper
+from langgraph.prebuilt import create_react_agent
+from langchain_community.tools import GoogleSerperRun
+# 加载环境变量配置文件
+dotenv.load_dotenv()
+# 从环境变量中获取Serper API密钥
+api_key = os.getenv("SERPER_API_KEY")
+# 创建Google Serper API包装器实例
+api_wrapper = GoogleSerperAPIWrapper()
+# 创建Google搜索工具实例
+search_tool = GoogleSerperRun(api_wrapper=api_wrapper)
+# 初始化本地大语言模型，配置基础URL、模型名称和推理模式
+llm = ChatOllama(base_url="http://localhost:11434", model="qwen3:14b", reasoning=False)
+
+# 定义工具列表，包含天气查询和结果写入工具
+tools = [search_tool]
+
+# 创建ReAct代理，结合语言模型和工具函数
+agent = create_react_agent(model=llm, tools=tools)
+
+# 调用工具处理用户查询
+response = agent.invoke({"messages": [{"role": "user", "content": "小米最近发布的新品是什么？"}]})
+# 输出完整响应结果和最终回答内容
+print(response)
+response["messages"][-1].pretty_print()
+```
+
+执行结果如下,可以看到ReAct智能体成功调用了搜索引擎搜索到我们需要的内容:
+
+```console title="执行结果如下" icon="terminal" wrap expandable
+{'messages': [HumanMessage(content='小米最近发布的新品是什么？', additional_kwargs={}, response_metadata={}, id='abcad5e3-5eb8-4eed-b904-6f8a8c36dad5'), AIMessage(content='', additional_kwargs={}, response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-02T08:21:53.213841352Z', 'done': True, 'done_reason': 'stop', 'total_duration': 760920386, 'load_duration': 18005074, 'prompt_eval_count': 171, 'prompt_eval_duration': 13099600, 'eval_count': 27, 'eval_duration': 728709120, 'model_name': 'qwen3:14b'}, id='run--f8d89030-ccb5-482f-9a14-895f96aabe1c-0', tool_calls=[{'name': 'google_serper', 'args': {'query': '小米最近发布的新品是什么？'}, 'id': '78eb1d14-9731-4930-a576-6669bc6ca1c7', 'type': 'tool_call'}], usage_metadata={'input_tokens': 171, 'output_tokens': 27, 'total_tokens': 198}), ToolMessage(content='发布会上，小米率先推出了全新旗舰手机小米17标准版，搭载高通第五代骁龙8至尊版移动平台。该芯片采用第三代3nm制程工艺，CPU主频高达4.6GHz，为目前安卓阵营 ... 作为雷军和小米的高端化“野心之作”，小米17 Pro系列有一大一小两款及四款配色，均配备了首发的骁龙8 Elite Gen5(第五代骁龙8至尊版芯片)，搭载徕卡“光影大师” ... REDMI Pad 2. 2.5K超清护眼屏| 9000mAh超长续航大电池| 海量题库精准辅学| 千元高性价比大屏平板. 999元起. REDMI K Pad. 8.8" 3K LCD 旗舰护眼屏| 天玑9400+. 這次小米在官方旗艦館開館慶推出的Xiaomi Pad mini，定價14,999 元，還加碼贈送市值1,498 元的好禮，包括Redmi Buds 6無線耳機(價值899 元)與專屬腕帶式保護 ... 6月24日上午雷军宣布小米YU7将在6月底发布且有诸多新品。有博主称此次新品丰富，包括小米MIX Flip2、小米平板7S Pro等。小米MIX Flip2是满配旗舰小折叠 ... Xiaomi 15T Pro. 專業徠卡5x 潛望長焦鏡頭. MediaTek Dimensity 9400+ 旗艦處理器 ; Xiaomi 智慧顯示器S Pro Mini LED 2026 75型. 704 個分區的QD-Mini LED ; Xiaomi Watch ... xiaomi Pad 7S Pro：更亲民的旗舰平板\u200b 上个月发布的小米平板7 Ultra 凭借顶级的屏幕和自研的玄戒O1 处理器吸引了雷科技的目光，但对于绝大多数用户来说， ... 手机、Pad方面，小米推出两款手机+两款Pad，小折旗舰MIX Flip 2全面升配，价格5999起；K80至尊版续航2.26天，价格2599元起；7SPro支持PC级软件，小尺寸K Pad性能 ... 本次发布会上，小米自主研发设计的首款3nm旗舰处理器“玄戒O1”正式发布，搭载在小米最新发布的旗舰手机小米15S Pro和旗舰平板小米Pad7 Ultra上， ... 雷軍的演講恰逢新款小米17系列智慧型手機的發布，其中包括小米17、小米17 Pro和小米17 Pro Max。 這些手機將採用新的小米澎湃OS 3和旗艦Snapdragon 8 Gen 3 ...', name='google_serper', id='33c3ada0-0d42-4ba5-9656-8ddc73594760', tool_call_id='78eb1d14-9731-4930-a576-6669bc6ca1c7'), AIMessage(content='小米最近发布的新品包括：\n\n1. **小米17系列**：包括小米17、小米17 Pro和小米17 Pro Max，搭载高通第五代骁龙8至尊版移动平台，采用第三代3nm制程工艺，CPU主频高达4.6GHz。小米17 Pro系列有两款机型及四款配色，均配备骁龙8 Elite Gen5芯片和徕卡“光影大师”镜头。\n\n2. **REDMI K80至尊版**：起售价2599元，主打超长续航(2.26天)。\n\n3. **REDMI Pad系列**：包括REDMI Pad 2(2.5K超清护眼屏、9000mAh大电池)和REDMI K Pad(8.8英寸3K LCD旗舰护眼屏、天玑9400+处理器)。\n\n4. **Xiaomi Pad 7S Pro**：更亲民的旗舰平板，支持PC级软件。\n\n5. **小米MIX Flip 2**：旗舰小折叠手机，价格5999元起。\n\n6. **Xiaomi 15T Pro**：配备专业徕卡5x潜望长焦镜头和MediaTek Dimensity 9400+旗舰处理器。\n\n7. **Xiaomi 智慧顯示器S Pro Mini LED 2026 75型**：搭载704个分区的QD-Mini LED。\n\n8. **Xiaomi Watch 系列**：具体型号未提及，但预计会有新功能。\n\n此外，小米还推出了首款自主研发的3nm旗舰处理器“玄戒O1”，搭载于小米15S Pro和小米Pad7 Ultra上。', additional_kwargs={}, response_metadata={'model': 'qwen3:14b', 'created_at': '2025-10-02T08:22:05.483671237Z', 'done': True, 'done_reason': 'stop', 'total_duration': 10104966535, 'load_duration': 16722790, 'prompt_eval_count': 828, 'prompt_eval_duration': 323439913, 'eval_count': 371, 'eval_duration': 9756385788, 'model_name': 'qwen3:14b'}, id='run--63ebfb7c-8ea4-4c11-98ef-1da6f70a1555-0', usage_metadata={'input_tokens': 828, 'output_tokens': 371, 'total_tokens': 1199})]}
+================================== Ai Message ==================================
+
+小米最近发布的新品包括：
+
+1. **小米17系列**：包括小米17、小米17 Pro和小米17 Pro Max，搭载高通第五代骁龙8至尊版移动平台，采用第三代3nm制程工艺，CPU主频高达4.6GHz。小米17 Pro系列有两款机型及四款配色，均配备骁龙8 Elite Gen5芯片和徕卡“光影大师”镜头。
+
+2. **REDMI K80至尊版**：起售价2599元，主打超长续航(2.26天)。
+
+3. **REDMI Pad系列**：包括REDMI Pad 2(2.5K超清护眼屏、9000mAh大电池)和REDMI K Pad(8.8英寸3K LCD旗舰护眼屏、天玑9400+处理器)。
+
+4. **Xiaomi Pad 7S Pro**：更亲民的旗舰平板，支持PC级软件。
+
+5. **小米MIX Flip 2**：旗舰小折叠手机，价格5999元起。
+
+6. **Xiaomi 15T Pro**：配备专业徕卡5x潜望长焦镜头和MediaTek Dimensity 9400+旗舰处理器。
+
+7. **Xiaomi 智慧顯示器S Pro Mini LED 2026 75型**：搭载704个分区的QD-Mini LED。
+
+8. **Xiaomi Watch 系列**：具体型号未提及，但预计会有新功能。
+
+此外，小米还推出了首款自主研发的3nm旗舰处理器“玄戒O1”，搭载于小米15S Pro和小米Pad7 Ultra上。
+```

@@ -1,0 +1,166 @@
+---
+title: "Agentic RAG"
+description: "结合 Pipeline 演示整理多阶段 RAG 执行、路由和动态决策"
+icon: "robot"
+---
+
+# Agentic RAG
+
+<Badge icon="clock" color="green">Written: 2026.06</Badge>
+本页整理 Pipeline 执行流程动画中的场景和阶段说明。
+
+## 1. 场景
+
+* 📖 完整知识问答(Stage 0-7)
+
+* ⚡ FAQ 精确匹配直达
+
+* 🚫 越界问题拒绝
+
+* 💬 多轮追问
+
+## 2. 时间线步骤
+
+### 2.1 🌐 用户发起请求
+
+用户在浏览器中输入问题： "入职流程包含哪些步骤？" ，选择业务分类为"HR 制度"，点击发送。前端直接构造 WebSocket 消息。
+
+### 2.2 🔌 WebSocket 入口接收消息
+
+FastAPI WebSocket 路由接受连接后，对每条消息执行限流、JSON 解析，并构造 QueryServiceContext。
+
+### 2.3 ⚙️ QAService.stream\_query() 启动
+
+API 层不做问答预判，只把 QueryServiceContext 交给 QAService.stream\_query()。后续查询路由、检索准备和 FAQ/Doc 检索都在 Pipeline 主链路内完成。
+
+### 2.4 🏗️ Stage 0：create\_query\_context()
+
+创建 RAGQueryContext 运行时上下文对象。这个对象贯穿后续所有阶段，携带场景配置、数据域、会话信息、trace\_id、知识库版本等全局状态。
+
+### 2.5 🧭 Stage 1：查询路由 — route=retrieval
+
+decide\_route() 统一判断 direct\_answer / faq\_exact / retrieval。本场景既不是问候/转人工/越界，也没有 FAQ 精确命中，所以返回 route=retrieval，继续检索准备。
+
+### 2.6 🧠 Stage 2a：意图分类 classify\_intent()
+
+规则优先 + LLM 补充的两级意图分类。直答类规则已在 Stage 1 先行处理；这里继续判断追问、FAQ\_QUERY、KNOWLEDGE\_QUERY 等需要检索的业务意图。
+
+### 2.7 🧠 Stage 2b：检索准备参数包
+
+prepare\_retrieval() 汇总下游检索需要的参数：历史上下文、source 过滤、必要时追问改写、检索计划、查询变体和 Prompt Profile。当前问题已经完整，所以改写函数会原样返回。
+
+### 2.8 🧠 Stage 2c：兜底 direct\_answer 检查
+
+主链路仍保留兜底检查：如果检索准备阶段产出 direct\_answer，也会直接返回。但问候、越界、转人工等确定性直答通常已在 Stage 1 收口。
+
+### 2.9 📋 Stage 3a：FAQ 混合检索
+
+多查询变体 → Milvus FAQ Collection 执行 Hybrid Search。BGE-M3 生成 Dense 向量做语义检索，Milvus BM25BuiltInFunction 生成 Sparse 向量做关键词检索。weighted ranker 按 0.55/0.45 权重融合两路结果。
+
+### 2.10 📋 Stage 3b：FAQ 候选合并 + 置信度判断
+
+多个查询变体召回的 FAQ 候选按 chunk\_id 合并去重(同一 chunk 只保留最高分)。按 score 降序排序。检查最高分是否 ≥ 置信度阈值(0.80)——达标则直接采用为标准答案，无需 LLM。
+
+### 2.11 📄 Stage 4a：文档混合检索
+
+查询变体 → Milvus Document Collection 执行 Hybrid Search。与 FAQ 检索相同的 Dense+Sparse 双路融合机制，但文档 Collection 的数据量更大(数万 chunk)，且 query 过滤表达式更复杂(source + kb\_version + data\_scope)。
+
+### 2.12 📄 Stage 4b：CrossEncoder Reranker 精排
+
+BGE Reranker Large(CrossEncoder 架构)对 Milvus 召回的 Top 30 候选用 \[query, doc] 拼接编码方式逐一精细打分。与向量相似度相比，CrossEncoder 的交叉注意力机制能精准区分语义相近但答非所问的文档。
+
+### 2.13 📊 Stage 5：上下文构建
+
+合并 FAQ 候选 + 文档候选 → 去重 → 按分数排序 → 截断至上下文窗口上限 → 格式化 Prompt Context。每条上下文标注来源编号 \[1]\[2]\[3]...，最终答案引用增强时依此追加来源标注。
+
+### 2.14 🤖 Stage 6：LLM 流式生成 + 引用增强
+
+System Prompt(场景变量注入：企业名称、助手名、业务域)+ 上下文 + 用户问题 → ChatOpenAI(model="qwen-plus", streaming=True).stream()。LLM 逐 token 生成，每个 token 通过 asyncio.to\_thread + WebSocket 实时推送到浏览器；生成结束后执行 enforce\_answer\_citations() 补强来源编号。
+
+### 2.15 💾 Stage 7：保存历史 + 发送 Trace
+
+LLM 生成和引用增强完成后，add\_turn() 将问答对写入 MySQL chat\_messages，finish\_success() 发送含来源、耗时、意图的 end 事件并写入 Trace。
+
+### 2.16 ✅ 一次完整 RAG 问答结束
+
+总结 ：用户问题经过 Stage 0-7 管线(上下文创建 → 查询路由 → 检索准备 → FAQ检索 → 文档检索 → 上下文构建 → LLM生成与引用增强 → 保存历史与Trace)，最终以流式打字效果呈现带来源引用的答案。 本次关键指标 ：总耗时 2.3s，召回30条→Rerank至5条，LLM生成156 tokens，引用3处来源，数据写入MySQL+LangSmith Trace。
+
+### 2.17 🌐 用户发起请求
+
+用户在 SaaS 客服场景中输入：" 忘记密码怎么办 "
+
+### 2.18 ⚙️ WebSocket 主链路启动
+
+WebSocket 入口解析消息并调用 QAService.stream\_query()。场景解析、数据域构建和后续意图分类都在 Pipeline 主链路中完成。
+
+### 2.19 🏗️ Stage 0 完成
+
+RAGQueryContext 创建完成：场景 saas\_support、数据域 default/dataset\_saas、KB v1、trace\_id 已生成。
+
+### 2.20 🧭 Stage 1：查询路由 — route=faq\_exact
+
+decide\_route() 内部试探 FAQ 精确匹配："忘记密码怎么办" === FAQ标准问题 #faq\_003 → 命中！ 返回 RouteDecision(route="faq\_exact", intent=FAQ\_QUERY)。
+
+### 2.21 💾 Stage 7：保存历史
+
+虽然跳过了完整检索和生成，但仍需保存本轮问答到 MySQL。add\_turn(session\_id, query, answer) → chat\_messages 表写入。
+
+### 2.22 🌐 用户提问："彩票怎么买"
+
+用户输入了一个与企业知识库无关且带风险的话题。
+
+### 2.23 ⚙️ WebSocket 主链路
+
+WebSocket 入口解析消息后调用 QAService.stream\_query()，后续在 Pipeline 中完成场景解析、数据域构建和统一查询路由。
+
+### 2.24 🏗️ Stage 0 完成
+
+RAGQueryContext 创建完成。
+
+### 2.25 🧭 Stage 1：查询路由 — route=direct\_answer / OUT\_OF\_SCOPE
+
+decide\_route() 先处理问候、转人工、越界等确定性直答。"彩票怎么买"命中越界规则，直接产出 OUT\_OF\_SCOPE 回答。这个分支不访问 FAQ、不调用 LLM，也不会进入后续检索阶段。
+
+### 2.26 💾 Stage 7：保存历史 + 发送 Trace
+
+add\_turn() → MySQL。finish\_success() → end事件。
+
+### 2.27 💬 多轮追问场景 — 第2轮对话
+
+第1轮 ：用户问"入职流程包含哪些步骤？"→ 系统完整RAG回答。 第2轮(当前) ：用户追问" 那审批需要多久？ "
+
+### 2.28 ⚙️ 主链路加载对话历史
+
+stream\_query() 创建上下文时读取最近消息。启用历史摘要时，旧消息会被压缩为一条 SystemMessage("历史摘要：上次问了入职流程...")。
+
+### 2.29 🏗️ Stage 0 完成
+
+RAGQueryContext 包含完整对话历史。context.history\_messages 中已有摘要 + 最近消息。
+
+### 2.30 🧭 Stage 1：查询路由 — route=retrieval
+
+追问"那审批需要多久"不是问候、转人工、越界，也没有 FAQ 精确命中，所以 decide\_route() 返回 retrieval，继续结合历史做检索准备。
+
+### 2.31 🧠 Stage 2a：意图分类 — FOLLOW\_UP
+
+LLM 结合对话历史判断：用户在使用代词"那"指代上文中的"入职流程" → 意图 FOLLOW\_UP。
+
+### 2.32 🧠 Stage 2b：追问改写 — 代词消解
+
+rewrite\_query(history, "那审批需要多久", FOLLOW\_UP) → LLM 被提示："用户说「那审批需要多久」，请结合历史将其改写为完整独立问题" → " 入职流程中的审批环节需要多长时间？ "
+
+### 2.33 📄 Stage 4：文档检索+重排
+
+用改写后的完整问题检索 → Hybrid Search → Reranker。由于改写消除了指代歧义，检索精度显著提升。
+
+### 2.34 📊 Stage 5：上下文构建
+
+FAQ 候选和文档候选按分数、去重键和 token 预算筛选，形成最终 Prompt Context。
+
+### 2.35 🤖 Stage 6：LLM流式生成 + 引用增强
+
+System Prompt 包含历史摘要 + 追问约束("回答焦点限定在当前问题，但需结合历史理解指代")→ LLM 流式生成 → 引用增强。
+
+### 2.36 💾 Stage 7：保存历史 + end事件
+
+MySQL 写入本轮问答，finish\_success() 发送 end 事件并记录 Trace。

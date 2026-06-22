@@ -1,0 +1,127 @@
+---
+title: "Mind map"
+description: '用 Mermaid 展示 LeetCode 学习路线图'
+icon: "diagram-project"
+---
+
+## Roadmap demo
+
+<Badge icon="clock" color="green">Written: 2026.06</Badge>
+This page shows a minimal usable version of a roadmap-style knowledge map. It uses a styled Mermaid `flowchart`, so you can keep the roadmap in plain MDX without adding a custom frontend app.
+
+```mermaid actions={false}
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "background": "#0b0b0c",
+    "primaryColor": "#141416",
+    "primaryTextColor": "#f3f4f6",
+    "primaryBorderColor": "#2a2a30",
+    "lineColor": "#8b8f97",
+    "tertiaryColor": "#111214",
+    "fontFamily": "ui-sans-serif, system-ui, sans-serif"
+  },
+  "flowchart": {
+    "defaultRenderer": "elk",
+    "curve": "basis",
+    "nodeSpacing": 28,
+    "rankSpacing": 54,
+    "padding": 10
+  }
+}}%%
+flowchart TB
+    ROOT["数据结构与算法"]
+
+    ROOT --> ARRAY["数组"]
+    ROOT --> LINKED["链表"]
+
+    ARRAY --> PREFIX["前缀和"]
+    ARRAY --> DIFF["差分数组"]
+    ARRAY --> MATRIX["二维数组"]
+
+    PREFIX --> TWOPOINTER["双指针"]
+    PREFIX --> BASIC["基础数据结构"]
+    LINKED --> BASIC
+    LINKED --> FASTSLOW["链表双指针"]
+
+    BASIC --> CYCLE["循环数组"]
+    BASIC --> STACK["栈与队列"]
+    BASIC --> HASH["哈希"]
+    BASIC --> DESIGN["设计"]
+
+    TWOPOINTER --> ARRAYPTR["数组双指针"]
+    TWOPOINTER --> WINDOW["滑动窗口"]
+    TWOPOINTER --> BSEARCH["二分搜索"]
+
+    FASTSLOW --> RECUR["递归"]
+    RECUR --> TREE["二叉树"]
+
+    TREE --> TRAVERSE["递归遍历"]
+    TREE --> LEVEL["层序遍历"]
+    TREE --> ADVANCED["高级数据结构"]
+
+    ADVANCED --> BST["二叉搜索树"]
+    ADVANCED --> HEAP["堆"]
+    ADVANCED --> TRIE["字典树"]
+    ADVANCED --> GRAPH["图"]
+
+    TRAVERSE --> BACKTRACK["回溯算法"]
+    TRAVERSE --> DFS["深度优先搜索"]
+    LEVEL --> BFS["广度优先搜索"]
+    BFS --> PATH["最短路径"]
+
+    classDef root fill:#16181d,color:#f5f7fa,stroke:#22c55e,stroke-width:2.5px,font-weight:bold,rx:12,ry:12;
+    classDef done fill:#16181d,color:#f3f4f6,stroke:#22c55e,stroke-width:1.8px,rx:10,ry:10;
+    classDef progress fill:#16181d,color:#f3f4f6,stroke:#eab308,stroke-width:1.8px,rx:10,ry:10;
+    classDef todo fill:#16181d,color:#f3f4f6,stroke:#ef4444,stroke-width:1.8px,rx:10,ry:10;
+    classDef neutral fill:#16181d,color:#f3f4f6,stroke:#52525b,stroke-width:1.6px,rx:10,ry:10;
+
+    class ROOT root;
+    class ARRAY,LINKED,PREFIX,DIFF,MATRIX,CYCLE,DESIGN,ARRAYPTR done;
+    class STACK,HASH,WINDOW,BSEARCH,RECUR,TREE,TRAVERSE,LEVEL,ADVANCED,BST,HEAP,TRIE,PATH progress;
+    class GRAPH,BACKTRACK,DFS,BFS todo;
+    class BASIC,TWOPOINTER,FASTSLOW neutral;
+```
+
+## Why this works as an MVP
+
+* Keeps the roadmap in one MDX file
+* Gives you explicit node hierarchy and status color
+* Stays easy to edit without adding a custom frontend stack
+* Works inside Mintlify with no extra build setup
+
+## Usage
+
+````mdx
+```mermaid actions={false}
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "background": "#0b0b0c",
+    "lineColor": "#8b8f97"
+  },
+  "flowchart": {
+    "defaultRenderer": "elk",
+    "nodeSpacing": 28,
+    "rankSpacing": 54,
+    "padding": 10
+  }
+}}%%
+flowchart TB
+    ROOT["数据结构与算法"]
+    ROOT --> ARRAY["数组"]
+    ROOT --> LINKED["链表"]
+
+    classDef done fill:#16181d,color:#f3f4f6,stroke:#22c55e,stroke-width:1.8px,rx:10,ry:10;
+    classDef progress fill:#16181d,color:#f3f4f6,stroke:#eab308,stroke-width:1.8px,rx:10,ry:10;
+    classDef todo fill:#16181d,color:#f3f4f6,stroke:#ef4444,stroke-width:1.8px,rx:10,ry:10;
+
+    class ARRAY done;
+    class LINKED progress;
+    class ROOT todo;
+```
+````
+
+## Next step
+
+If you need clickable cards, a right-side detail panel, or per-node exercise progress, Mermaid will stop being enough. At that point, move to a custom React page with React Flow.

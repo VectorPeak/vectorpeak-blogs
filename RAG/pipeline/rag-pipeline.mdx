@@ -570,7 +570,7 @@ class RAGQueryContext:
 
 追踪信息最终进入 `end` 事件：
 
-```
+```json
 &#123;
     "type": "end",
     "retrieval": &#123;
@@ -598,7 +598,7 @@ class RAGQueryContext:
 
 一次 RAG 问答不是"前端发请求 → 等 5 秒 → 收到完整答案"。实际的用户体验是：
 
-```
+```text
 前端发送问题 → 看到"正在进行查询路由..." →
 看到"正在识别问题意图..." → 看到"正在检索 FAQ..." → 看到"正在匹配业务资料..." → 看到"正在生成回答..." → token 逐字出现 →
 看到完整答案 + 来源引用
@@ -608,7 +608,7 @@ class RAGQueryContext:
 
 ### 8.2 五种事件类型
 
-```
+```mermaid
 sequenceDiagram
     participant Browser as 浏览器
     participant WS as /api/stream (WebSocket)
@@ -654,7 +654,7 @@ sequenceDiagram
 
 **start 事件** — 请求已被接收：
 
-```
+```json
 &#123;
     "type": "start",
     "session_id": "abc123",
@@ -668,7 +668,7 @@ sequenceDiagram
 
 **status 事件** — 阶段性进度通知：
 
-```
+```json
 &#123;
     "type": "status",
     "session_id": "abc123",
@@ -680,7 +680,7 @@ sequenceDiagram
 
 **token 事件** — 流式答案的片段：
 
-```
+```json
 &#123;
     "type": "token",
     "session_id": "abc123",
@@ -692,7 +692,7 @@ sequenceDiagram
 
 **end 事件** — 问答完成：
 
-```
+```json
 &#123;
     "type": "end",
     "session_id": "abc123",
@@ -719,7 +719,7 @@ sequenceDiagram
 
 **error 事件** — 异常恢复：
 
-```
+```json
 &#123;
     "type": "error",
     "session_id": "abc123",
@@ -730,7 +730,7 @@ sequenceDiagram
 
 ### 8.4 前端如何消费事件
 
-```
+```js
 // static/js/chat.js(简化逻辑)
 
 const ws = new WebSocket(`ws://$&#123;location.host&#125;/api/stream`);
@@ -791,7 +791,7 @@ while True:
         break
 ```
 
-```
+```mermaid
 flowchart TD
     subgraph MainThread["主线程(事件循环)"]
         WS["WebSocket 接收消息"]
@@ -862,7 +862,7 @@ flowchart TD
 
 本讲是在线问答的主干实现。实现完成后，相关代码结构应该是下面这张图：
 
-```
+```mermaid
 flowchart LR
     subgraph Pipeline["qa_core/pipeline"]
         Rag["rag.py&lt;br/>stream_query 主流程"]
@@ -899,7 +899,7 @@ flowchart LR
 
 来源：真实代码逻辑压缩版，对应 `qa_core/pipeline/events.py`、`qa_core/pipeline/runtime.py` 与 `qa_core/pipeline/rag.py`。
 
-```
+```python
 context = create_query_context(...)
 yield start_event(context)
 
@@ -921,7 +921,7 @@ yield finish_success(context, answer=answer)
 
 来源：真实代码逻辑压缩版，对应 `qa_core/pipeline/rag.py` 和 `qa_core/pipeline/steps.py`。
 
-```
+```python
 yield status_event("正在进行查询路由...", context.session_id)
 route = decide_route(context)
 if route.answer:
@@ -946,7 +946,7 @@ if prepared.intent.direct_answer:
 
 来源：真实代码逻辑压缩版，对应 `qa_core/pipeline/rag.py::_search_and_generate()` 与 `qa_core/pipeline/retrieval_steps.py`。
 
-```
+```python
 yield status_event("正在检索业务 FAQ 知识库...", context.session_id)
 faq_result = search_faq(context, prepared)
 direct_answer = get_faq_direct_answer(context, prepared, faq_result)
@@ -974,7 +974,7 @@ if context.hit_type == "insufficient_context":
 
 来源：真实代码逻辑压缩版，对应 `qa_core/pipeline/rag.py`、`qa_core/pipeline/steps.py`、`qa_core/pipeline/context.py`、`qa_core/pipeline/citations.py`。
 
-```
+```python
 yield status_event("正在生成回答...", context.session_id)
 with context.stage("llm_generation"):
     for chunk in stream_llm_answer(answer_prepared.system_prompt, answer_prepared.user_prompt):
@@ -1001,7 +1001,7 @@ elif answer != raw_answer:
 
 来源：真实代码逻辑压缩版，对应 `qa_core/pipeline/rag.py::_finish_with_single_answer()` 和 Stage 7。
 
-```
+```python
 with context.stage("save_history"):
     history.add_turn(context.session_id, query, answer)
 yield finish_success(context, answer=answer)
@@ -1022,7 +1022,7 @@ yield finish_success(context, answer=answer)
 
 来源：命令行验收，对应 `scripts/api_e2e_smoke.py`。
 
-```
+```bash
 python scripts/api_e2e_smoke.py
 ```
 
