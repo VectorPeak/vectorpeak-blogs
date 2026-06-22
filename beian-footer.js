@@ -1,5 +1,5 @@
 (() => {
-  const BEIAN_TEXT = "宁ICP备2026000657号";
+  const BEIAN_TEXT = "前后端知识分享:宁ICP备2026000657号";
   const BEIAN_URL = "https://beian.miit.gov.cn/";
   const GITHUB_URL = "https://github.com/VectorPeak";
   const WECHAT_QR_URL = "/images/contact/wechat-qr.jpg";
