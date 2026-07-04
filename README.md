@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 <h1>vectorpeak-blogs | VectorPeak 技术知识花园</h1>
 
@@ -141,26 +141,54 @@ vectorpeak-blogs/
 - 图片或静态资源是否使用稳定路径。
 - 外部概念是否补充来源、边界和反例。
 - 本地是否通过 `mint dev` 预览和 `mint broken-links` 检查。
+## 注意事项
 
-## In English
+这个仓库更接近一个持续演化的个人知识库，而不是一次性完成的教程合集。阅读和维护时建议注意：
 
-`vectorpeak-blogs` is VectorPeak's personal technical blog and knowledge site. It is built as a growing knowledge garden rather than a generic documentation starter: notes about Agents, RAG, algorithms, deep learning, and technical reflections are organized into pages that can be searched, reviewed, and reused over time.
+- **内容仍在生长**：部分页面可能是阶段性笔记、学习草稿或后续专题的入口，不一定代表最终结论。
+- **以主题目录为主线**：新增内容优先放入 `Agent/`、`RAG/`、`LeetCode/`、`DeepLearning/` 或 `Guides/`，避免在根目录堆叠零散页面。
+- **导航需要同步维护**：新增页面后，应同步检查 `docs.json`，否则页面可能存在于仓库中，但不会出现在站点导航里。
+- **实践内容要保留环境**：涉及代码、实验、工具链或模型调用时，应尽量写清版本、依赖、输入条件和失败边界。
+- **个人判断不等于通用结论**：反思类内容会包含个人经验和阶段性判断，适合作为参考，而不是直接照搬为工程规范。
+- **图片与静态资源要稳定**：文档中的图片、Logo 和附件应放在 `images/` 或 `public/` 下，并使用可长期维护的路径。
 
-The repository is organized around a few core areas:
+## FAQ
 
-- **Guides**: site notes, writing entry points, and reflections.
-- **Agent**: Agent theory, LangChain, LangGraph, MCP, multi-agent systems, and modern coding agents.
-- **RAG**: retrieval foundations, chunking, embeddings, vector databases, reranking, production RAG, evaluation, and Agentic RAG.
-- **LeetCode**: algorithm roadmaps, problem notes, and training paths.
-- **DeepLearning**: deep learning notes, experiments, and practical learning records.
+### 这个仓库和普通博客有什么区别？
 
-Local development:
+普通博客通常按发布时间组织，更像时间线；`vectorpeak-blogs` 更偏知识库，按主题和问题组织。它关注的不是“某天写了什么”，而是“某个概念、实践或路线以后能不能被重新找到、理解和复用”。
+
+### 为什么使用 Mintlify？
+
+Mintlify 适合把 Markdown / MDX 内容组织成结构化文档站点：导航清晰、搜索友好、页面风格统一，也便于把学习笔记逐步沉淀成更像产品文档的知识系统。
+
+### 新增页面后为什么站点里看不到？
+
+大概率是页面还没有加入 `docs.json` 的导航配置。仓库中的文件只是内容实体，`docs.json` 才决定它是否出现在站点导航中。
+
+### Agent、RAG、LeetCode、DeepLearning 之间是什么关系？
+
+它们对应不同层次的技术能力：`LeetCode` 偏基础算法训练，`DeepLearning` 偏模型与学习方法，`RAG` 偏知识系统工程，`Agent` 偏工具调用、任务规划和自动化执行。四者不是孤立目录，而是从基础能力到 AI 工程系统的连续学习路径。
+
+### 这个仓库适合谁阅读？
+
+适合想系统学习 AI 工程、RAG、Agent、算法训练和深度学习实践的人阅读。对于只想复制一份博客模板的人，它也可以作为 Mintlify 站点结构参考，但重点仍然是内容组织方法，而不是页面样式本身。
+
+### 维护这个站点时最容易出错的地方是什么？
+
+最常见的问题有三个：新增页面但忘记更新 `docs.json`；图片路径在本地可用但线上不可用；学习笔记只记录结论，却没有记录问题背景、实验条件和失败边界。
+
+### 本地预览失败怎么办？
+
+先确认已经安装 Mintlify CLI，并在仓库根目录运行：
 
 ```bash
 npm i -g mint
-cd E:\Github\vectorpeak-blogs
 mint dev
-mint broken-links
 ```
 
-The main site configuration lives in `docs.json`, while `index.mdx` is the home page entry. Topic pages are maintained under `Guides/`, `Agent/`, `RAG/`, `LeetCode/`, and `DeepLearning/`.
+如果页面能打开但导航异常，优先检查 `docs.json`；如果图片或链接异常，运行：
+
+```bash
+mint broken-links
+```
